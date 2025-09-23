@@ -19,7 +19,7 @@ Build a standalone, browser-based prototype that mirrors Notion's AI meeting not
 - All processing is cloud-powered; no offline requirement.
 - Voice embeddings and audio files can be stored on the hosted backend without additional compliance constraints.
 - Free-tier APIs or open-source libraries are preferred; paid services are avoided.
-- You will provide sample voice profiles (3 speakers) and a sample conversation for validation.
+- You will provide testing material: voice profiles (3 speakers) and a sample conversation for validation.
 
 ## User Journeys
 1. **Voice Profile Setup**

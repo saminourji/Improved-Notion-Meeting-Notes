@@ -8,23 +8,36 @@ _This is a living document intended to be updated alongside development. Use it 
 - Link to relevant commits, pull requests, or logs when available.
 
 ## Snapshot Status
-- **Overall State:** _Not started_
-- **Current Phase:** _Phase 1 – Backend Pipeline_
-- **Last Updated:** _TBD_
+- **Overall State:** Planning & scoping
+- **Current Phase:** Phase 1 – Backend Pipeline (pre-implementation)
+- **Last Updated:** 2025-09-22
 
 ## Active Action Items
-- [ ] _Add initial backend pipeline scaffolding_
-- [ ] _Integrate diarization library and validate with sample voices_
-- [ ] _Implement transcript + persona action item generation endpoints_
+- [x] Finalize recommended speech/LLM tech stack selections based on current research
+- [ ] Define backend project structure, environment setup, and configuration strategy
+- [ ] Implement voice profile ingestion endpoints (upload + mic capture placeholders)
+- [ ] Prototype speaker embedding generation and storage workflow using sample voices
+- [ ] Integrate diarization pipeline and validate against provided conversation audio
+- [ ] Set up transcription service (e.g., Whisper) and transcript annotation formatting
+- [ ] Design LLM prompts for summaries and persona-specific action items
+- [ ] Draft REST API contract for frontend consumption (profiles, meetings, artifacts)
+- [ ] Establish logging format and file rotation strategy for pipeline stages
 
 ## Completed Work
-- _None yet_
+- Documented backend setup and automation brief (docs/backend-setup.md, docs/backend-agent-brief.md).
 
 ## Blockers & Risks
-- _None identified_
+- Verify OpenAI usage costs and rate limits against expected demo traffic.
+- Potential compute constraints for diarization/transcription on chosen hosting provider.
 
 ## Feedback & Notes
 - _Placeholder for insights from demo runs, Notion engineers, or user testing._
 
+## Decisions & Follow-ups
+- Adopted stack documented in `docs/technical-stack.md` (pyannote.audio + faster-whisper + OpenAI API).
+- TODO: Document setup instructions for Hugging Face token, FFmpeg, and OpenAI API keys in README.
+- TODO: Build CLI smoke test to validate pipeline once scaffolding is ready.
+
 ## Upcoming Milestones
-- _Define milestone descriptions once roadmap dates are established._
+- Phase 1 kickoff: backend scaffolding ready for initial pipeline tests
+- Phase 2 readiness: REST APIs proven with sample data and documented for frontend handoff
