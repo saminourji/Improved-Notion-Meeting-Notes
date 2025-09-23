@@ -1,0 +1,66 @@
+{
+  "extraction_results": [
+    {
+      "speaker": "sami",
+      "file": "voice_sample_sami.m4a",
+      "status": "success",
+      "embedding_shape": [
+        192
+      ],
+      "embedding_stats": {
+        "min": -69.12881469726562,
+        "max": 59.91997528076172,
+        "mean": 2.6786186695098877,
+        "std": 22.666568756103516
+      },
+      "note": "SpeechBrain embedding extracted"
+    },
+    {
+      "speaker": "aadil",
+      "file": "voice_sample_aadil.m4a",
+      "status": "success",
+      "embedding_shape": [
+        192
+      ],
+      "embedding_stats": {
+        "min": -49.7614631652832,
+        "max": 74.03882598876953,
+        "mean": 3.626504898071289,
+        "std": 22.472410202026367
+      },
+      "note": "SpeechBrain embedding extracted"
+    },
+    {
+      "speaker": "sparsh",
+      "file": "voice_sample_sparsh.m4a",
+      "status": "success",
+      "embedding_shape": [
+        192
+      ],
+      "embedding_stats": {
+        "min": -72.52943420410156,
+        "max": 67.11102294921875,
+        "mean": 0.2982865571975708,
+        "std": 22.26836585998535
+      },
+      "note": "SpeechBrain embedding extracted"
+    }
+  ],
+  "similarities": {
+    "sami": {
+      "sami": "1.0000001",
+      "aadil": "0.123610996",
+      "sparsh": "0.19159168"
+    },
+    "aadil": {
+      "sami": "0.123610996",
+      "aadil": "1.0000001",
+      "sparsh": "0.1847506"
+    },
+    "sparsh": {
+      "sami": "0.19159168",
+      "aadil": "0.1847506",
+      "sparsh": "0.99999994"
+    }
+  }
+}

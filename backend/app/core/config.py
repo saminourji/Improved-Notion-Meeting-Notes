@@ -1,12 +1,11 @@
-from functools import lru_cache
 from pathlib import Path
 from typing import Optional
-
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Application configuration loaded from environment variables."""
+    """Simplified application configuration."""
 
     environment: str = Field("development", env="APP_ENV")
     log_level: str = Field("INFO", env="LOG_LEVEL")
@@ -16,27 +15,22 @@ class Settings(BaseSettings):
 
     huggingface_token: Optional[str] = Field(default=None, env="HUGGINGFACE_TOKEN")
 
-    postgres_url: Optional[str] = Field(default=None, env="POSTGRES_URL")
-    redis_url: Optional[str] = Field(default=None, env="REDIS_URL")
-
     data_dir: Path = Field(default=Path("data"), env="DATA_DIR")
     logs_dir: Path = Field(default=Path("logs"), env="LOGS_DIR")
 
-    pipeline_log_name: str = Field("pipeline.log", env="PIPELINE_LOG_NAME")
-    max_concurrent_jobs: int = Field(1, env="MAX_CONCURRENT_JOBS")
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
-    @property
-    def pipeline_log_path(self) -> Path:
-        return self.logs_dir / self.pipeline_log_name
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"  # Ignore extra fields in .env
+    }
 
 
-@lru_cache(maxsize=1)
+_settings: Optional[Settings] = None
+
 def get_settings() -> Settings:
-    settings = Settings()
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
-    settings.logs_dir.mkdir(parents=True, exist_ok=True)
-    return settings
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+        _settings.data_dir.mkdir(parents=True, exist_ok=True)
+        _settings.logs_dir.mkdir(parents=True, exist_ok=True)
+    return _settings

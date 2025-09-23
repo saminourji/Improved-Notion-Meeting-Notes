@@ -8,24 +8,27 @@ _This is a living document intended to be updated alongside development. Use it 
 - Link to relevant commits, pull requests, or logs when available.
 
 ## Snapshot Status
-- **Overall State:** Backend scaffolding in progress
-- **Current Phase:** Phase 1 – Backend Pipeline (implementation kickoff)
-- **Last Updated:** 2025-09-22
+- **Overall State:** Core pipeline implemented and tested
+- **Current Phase:** Phase 1 – Backend Pipeline (core functionality complete)
+- **Last Updated:** 2025-09-23
 
 ## Active Action Items
 - [x] Finalize recommended speech/LLM tech stack selections based on current research
-- [x] Define backend project structure, environment setup, and configuration strategy (FastAPI skeleton in `backend/app/`)
-- [ ] Implement voice profile ingestion endpoints (POST `/api/speakers/enroll` scaffolded; awaiting audio handling + embedding generation)
-- [ ] Prototype speaker embedding generation and storage workflow using sample voices
-- [ ] Integrate diarization pipeline and validate against provided conversation audio
-- [ ] Set up transcription service (e.g., Whisper) and transcript annotation formatting
-- [ ] Design LLM prompts for summaries and persona-specific action items
-- [ ] Draft REST API contract for frontend consumption (profiles, meetings, artifacts)
-- [ ] Establish logging format and file rotation strategy for pipeline stages
+- [x] Define backend project structure, environment setup, and configuration strategy
+- [x] Implement core diarization pipeline using pyannote.audio
+- [x] Create speaker embedding generation and matching workflow
+- [x] Integrate transcription service using faster-whisper
+- [x] Build file upload API endpoint for meeting processing
+- [x] Create CLI test script for pipeline validation
+- [ ] Add LLM integration for summaries and persona-specific action items
+- [ ] Test with provided audio samples and optimize accuracy
+- [ ] Create frontend integration layer
 
 ## Completed Work
-- Documented backend setup and automation brief (docs/backend-setup.md, docs/backend-agent-brief.md).
-- Backend API skeleton, in-memory persistence stubs, and task manager scaffolding added under `backend/app/`.
+- Core audio processing pipeline with diarization, speaker matching, and transcription
+- Direct file upload API endpoint (`POST /process`) with multipart form support
+- CLI testing script for validating pipeline components
+- Environment-based configuration for API keys and tokens
 
 ## Blockers & Risks
 - Verify OpenAI usage costs and rate limits against expected demo traffic.
