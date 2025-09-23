@@ -8,14 +8,14 @@ _This is a living document intended to be updated alongside development. Use it 
 - Link to relevant commits, pull requests, or logs when available.
 
 ## Snapshot Status
-- **Overall State:** Planning & scoping
-- **Current Phase:** Phase 1 – Backend Pipeline (pre-implementation)
+- **Overall State:** Backend scaffolding in progress
+- **Current Phase:** Phase 1 – Backend Pipeline (implementation kickoff)
 - **Last Updated:** 2025-09-22
 
 ## Active Action Items
 - [x] Finalize recommended speech/LLM tech stack selections based on current research
-- [ ] Define backend project structure, environment setup, and configuration strategy
-- [ ] Implement voice profile ingestion endpoints (upload + mic capture placeholders)
+- [x] Define backend project structure, environment setup, and configuration strategy (FastAPI skeleton in `backend/app/`)
+- [ ] Implement voice profile ingestion endpoints (POST `/api/speakers/enroll` scaffolded; awaiting audio handling + embedding generation)
 - [ ] Prototype speaker embedding generation and storage workflow using sample voices
 - [ ] Integrate diarization pipeline and validate against provided conversation audio
 - [ ] Set up transcription service (e.g., Whisper) and transcript annotation formatting
@@ -25,6 +25,7 @@ _This is a living document intended to be updated alongside development. Use it 
 
 ## Completed Work
 - Documented backend setup and automation brief (docs/backend-setup.md, docs/backend-agent-brief.md).
+- Backend API skeleton, in-memory persistence stubs, and task manager scaffolding added under `backend/app/`.
 
 ## Blockers & Risks
 - Verify OpenAI usage costs and rate limits against expected demo traffic.
