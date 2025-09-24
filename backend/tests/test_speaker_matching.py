@@ -70,7 +70,7 @@ def test_speaker_matching():
         diarizer = SpeakerDiarizer(hf_token)
         print("   ✅ Speaker diarizer ready")
 
-        matcher = SpeakerMatcher(similarity_threshold=0.75)  # Higher threshold with better embeddings
+        matcher = SpeakerMatcher(similarity_threshold=0.75)
         print("   ✅ Speaker matcher ready")
 
         # Step 1: Convert voice samples to WAV and extract embeddings
@@ -120,57 +120,33 @@ def test_speaker_matching():
         if len(segments) > 5:
             print(f"      ... and {len(segments)-5} more segments")
 
-        # Step 3: Extract embeddings for each segment
-        print(f"\n🧬 Extracting embeddings for segments...")
-        segment_embeddings = []
+        # Step 3: Extract weighted average embeddings and match speakers using centralized function
+        print(f"\n🧬 Extracting weighted average embeddings and matching speakers...")
 
-        # Group segments by speaker to avoid duplicate extraction
-        unique_speakers = {}
-        for segment in segments:
-            speaker = segment['speaker']
-            if speaker not in unique_speakers:
-                print(f"   Extracting embedding for {speaker}...")
-
-                embedding = diarizer.extract_speaker_embedding(
-                    meeting_wav,
-                    start_time=segment['start'],
-                    end_time=segment['end']
-                )
-
-                unique_speakers[speaker] = embedding
-                print(f"   🧬 {speaker} embedding shape: {embedding.shape}")
-
-        # Create segment embeddings list
-        for segment in segments:
-            segment_embeddings.append(unique_speakers[segment['speaker']])
-
-        print(f"   ✅ Extracted embeddings for {len(unique_speakers)} unique speakers")
-
-        # Step 4: Match segments against known speakers
-        print(f"\n🔍 Matching segments against known speakers...")
-
-        # Debug: Check embedding shapes and norms
-        print(f"   🔍 Debug info:")
-        print(f"      Voice embedding shapes: {[(name, emb.shape, np.linalg.norm(emb)) for name, emb in voice_embeddings.items()]}")
-        print(f"      Segment embedding info: {[(i, emb.shape, np.linalg.norm(emb)) for i, emb in enumerate(segment_embeddings[:3])]}")
-        print(f"      Similarity threshold: {matcher.similarity_threshold}")
-
-        matching_result = matcher.match_segments(diarization_result, segment_embeddings)
+        matching_result = matcher.extract_and_match_speakers(meeting_wav, diarization_result, diarizer)
         matched_segments = matching_result['segments']
         speaker_mapping = matching_result.get('speaker_mapping', {})
+        segment_details = matching_result.get('segment_details', {})
+
+        # Display the detailed logging from the centralized function
+        for speaker, details in segment_details.items():
+            print(f"\n   Processing {speaker}...")
+            print(f"   Found {len([d for d in details if not d.startswith('Segment') or 'SKIPPED' not in d])} valid segments")
+            print(f"   📊 Individual segment similarities:")
+            for detail in details:
+                if detail.startswith('Segment') and 'SKIPPED' not in detail:
+                    print(f"     {detail}")
+                elif 'SKIPPED' in detail:
+                    print(f"     {detail}")
+            print(f"   🎯 Averaged {speaker} similarities:")
+            for detail in details:
+                if detail.startswith('Final averaged'):
+                    print(f"      {detail}")
+
+        print(f"\n   ✅ Created weighted average embeddings for {len(segment_details)} speakers")
 
         print(f"   ✅ Matching completed")
         print(f"   📊 Speaker mapping: {speaker_mapping}")
-
-        # Debug: Show some actual similarity calculations
-        print(f"   🔍 Sample similarity calculations:")
-        for i, (name, voice_emb) in enumerate(voice_embeddings.items()):
-            if i < len(segment_embeddings):
-                seg_emb = segment_embeddings[i]
-                similarity = matcher._cosine_similarity(seg_emb, voice_emb)
-                print(f"      Segment {i} vs {name}: {similarity:.6f}")
-            if i >= 2:  # Only show first 3
-                break
 
         # Step 5: Analyze results
         print(f"\n📊 Matching Results Analysis:")
@@ -210,8 +186,8 @@ def test_speaker_matching():
             print(f"      → Avg similarity: {avg_similarity:.3f}")
             print(f"      → Max similarity: {max_similarity:.3f}")
 
-            # Consider it successful if most segments match a known speaker with similarity above threshold
-            if most_common_match[0] != 'Unknown' and avg_similarity > 0.1:
+            # Consider it successful if most segments match a known speaker (not Unknown)
+            if most_common_match[0] != 'Unknown' and not most_common_match[0].startswith('Unknown'):
                 successful_matches += 1
                 print(f"      ✅ Good match!")
             else:
@@ -225,7 +201,7 @@ def test_speaker_matching():
         save_matching_results({
             'voice_embeddings_extracted': len(voice_embeddings),
             'meeting_segments': len(segments),
-            'unique_diarized_speakers': len(unique_speakers),
+            'unique_diarized_speakers': len(unique_speaker_embeddings),
             'speaker_mapping': speaker_mapping,
             'matches_by_speaker': {k: [(match, float(sim)) for match, sim in v]
                                  for k, v in matches_by_speaker.items()},
