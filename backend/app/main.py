@@ -55,7 +55,9 @@ async def process_meeting_endpoint(
     speaker_names: Optional[str] = Form(None),
     voice_sample_1: Optional[UploadFile] = File(None),
     voice_sample_2: Optional[UploadFile] = File(None),
-    voice_sample_3: Optional[UploadFile] = File(None)
+    voice_sample_3: Optional[UploadFile] = File(None),
+    generate_insights: bool = Form(True),
+    generate_all_action_views: bool = Form(False)
 ):
     """Process a meeting with optional voice samples for speaker identification."""
     logger = structlog.get_logger(__name__)
@@ -98,8 +100,13 @@ async def process_meeting_endpoint(
                            size_bytes=len(voice_content))
 
         # Process the meeting
-        logger.info("starting_meeting_processing", request_id=request_id)
-        result = processor.process_meeting(meeting_path, voice_samples)
+        logger.info("starting_meeting_processing",
+                   request_id=request_id,
+                   generate_insights=generate_insights,
+                   generate_all_action_views=generate_all_action_views)
+        result = processor.process_meeting(meeting_path, voice_samples,
+                                         generate_insights=generate_insights,
+                                         generate_all_action_views=generate_all_action_views)
 
         # Save results
         results_dir = Path("data/results")
@@ -138,6 +145,138 @@ async def process_meeting_endpoint(
         shutil.rmtree(temp_dir, ignore_errors=True)
 
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+@app.post("/summarize")
+async def generate_summary_endpoint(
+    transcript: str = Form(...),
+    duration_minutes: Optional[float] = Form(None),
+    user_notes: Optional[str] = Form(None)
+):
+    """Generate a meeting summary from a speaker-annotated transcript."""
+    logger = structlog.get_logger(__name__)
+
+    if processor is None:
+        raise HTTPException(status_code=500, detail="Processor not initialized")
+
+    try:
+        logger.info("generating_summary_from_transcript",
+                   transcript_length=len(transcript))
+
+        metadata = {}
+        if duration_minutes:
+            metadata['duration'] = duration_minutes
+
+        summary_result = processor.llm_service.generate_meeting_summary(transcript, metadata, user_notes)
+
+        return JSONResponse(content={
+            "success": True,
+            "summary": summary_result["summary"],
+            "participants": summary_result["participants"],
+            "metadata": summary_result["metadata"]
+        })
+
+    except Exception as e:
+        logger.exception("summary_generation_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Summary generation failed: {str(e)}")
+
+@app.post("/action-items")
+async def extract_action_items_endpoint(
+    transcript: str = Form(...),
+    speaker: Optional[str] = Form(None),
+    user_notes: Optional[str] = Form(None)
+):
+    """Extract action items from a speaker-annotated transcript.
+
+    Args:
+        transcript: Speaker-annotated meeting transcript
+        speaker: Optional speaker name for personalized view (if not provided, returns general view)
+        user_notes: Optional user-provided notes to incorporate into action items
+    """
+    logger = structlog.get_logger(__name__)
+
+    if processor is None:
+        raise HTTPException(status_code=500, detail="Processor not initialized")
+
+    try:
+        logger.info("extracting_action_items_from_transcript",
+                   transcript_length=len(transcript),
+                   target_speaker=speaker)
+
+        action_items_result = processor.llm_service.extract_action_items_by_speaker(
+            transcript, target_speaker=speaker, user_notes=user_notes
+        )
+
+        return JSONResponse(content={
+            "success": True,
+            "action_items_by_speaker": action_items_result["action_items"],
+            "metadata": action_items_result["metadata"]
+        })
+
+    except Exception as e:
+        logger.exception("action_items_extraction_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Action items extraction failed: {str(e)}")
+
+@app.post("/action-items/all-views")
+async def extract_all_action_items_views_endpoint(
+    transcript: str = Form(...),
+    user_notes: Optional[str] = Form(None)
+):
+    """Extract all action item views: general + speaker-specific views for each participant."""
+    logger = structlog.get_logger(__name__)
+
+    if processor is None:
+        raise HTTPException(status_code=500, detail="Processor not initialized")
+
+    try:
+        logger.info("extracting_all_action_item_views_from_transcript",
+                   transcript_length=len(transcript))
+
+        all_views_result = processor.llm_service.extract_all_action_item_views(transcript, user_notes)
+
+        return JSONResponse(content={
+            "success": True,
+            "general_view": all_views_result["general_view"],
+            "speaker_views": all_views_result["speaker_views"],
+            "metadata": all_views_result["metadata"]
+        })
+
+    except Exception as e:
+        logger.exception("all_action_items_views_extraction_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"All action items views extraction failed: {str(e)}")
+
+@app.post("/insights")
+async def generate_insights_endpoint(
+    transcript: str = Form(...),
+    duration_minutes: Optional[float] = Form(None),
+    user_notes: Optional[str] = Form(None)
+):
+    """Generate comprehensive meeting insights (summary + action items) from a transcript."""
+    logger = structlog.get_logger(__name__)
+
+    if processor is None:
+        raise HTTPException(status_code=500, detail="Processor not initialized")
+
+    try:
+        logger.info("generating_comprehensive_insights_from_transcript",
+                   transcript_length=len(transcript))
+
+        metadata = {}
+        if duration_minutes:
+            metadata['duration'] = duration_minutes
+
+        insights = processor.llm_service.generate_meeting_insights(transcript, metadata, user_notes)
+
+        return JSONResponse(content={
+            "success": True,
+            "summary": insights["summary"],
+            "action_items_by_speaker": insights["action_items_by_speaker"],
+            "participants": insights["participants"],
+            "metadata": insights["metadata"]
+        })
+
+    except Exception as e:
+        logger.exception("insights_generation_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Insights generation failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
