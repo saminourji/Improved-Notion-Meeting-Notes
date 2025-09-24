@@ -19,6 +19,10 @@ Thumbs.db
 logs/
 *.log
 
+# Test results and data
+data/test_results/
+backend/data/
+
 # VSCode and IDE metadata
 .vscode/
 .idea/
