@@ -11,6 +11,7 @@ from speechbrain.inference.speaker import EncoderClassifier
 from faster_whisper import WhisperModel
 import structlog
 from .speaker_database import SpeakerDatabase
+from ..services.llm_service import LLMService
 
 logger = structlog.get_logger(__name__)
 
@@ -169,9 +170,10 @@ class SpeakerDiarizer:
 class SpeakerMatcher:
     """Matches diarized speakers against known voice samples."""
 
-    def __init__(self, similarity_threshold: float = 0.75):
+    def __init__(self, similarity_threshold: float = 0.75, diarizer=None):
         self.similarity_threshold = similarity_threshold
         self.known_speakers: Dict[str, np.ndarray] = {}
+        self._diarizer = diarizer
 
     def add_speaker(self, speaker_name: str, embedding: np.ndarray):
         """Add a known speaker embedding."""
@@ -185,6 +187,96 @@ class SpeakerMatcher:
             embedding = np.load(embedding_file)
             self.add_speaker(speaker_name, embedding)
 
+    def extract_and_match_speakers(self, audio_path: Path, diarization_result: Dict, diarizer) -> Dict:
+        """Extract speaker embeddings using equal-weight averaging and match to known speakers.
+
+        This consolidates the logic that was previously scattered across test files.
+        """
+        import numpy as np
+
+        segments = diarization_result['segments']
+
+        # Group segments by speaker
+        segments_by_speaker = {}
+        for segment in segments:
+            speaker = segment['speaker']
+            duration = segment['end'] - segment['start']
+
+            if speaker not in segments_by_speaker:
+                segments_by_speaker[speaker] = []
+
+            segments_by_speaker[speaker].append({
+                'start': segment['start'],
+                'end': segment['end'],
+                'duration': duration
+            })
+
+        # Extract embeddings using equal-weight averaging for each speaker
+        unique_speaker_embeddings = {}
+        segment_details = {}  # For debugging/logging
+
+        for speaker, speaker_segments in segments_by_speaker.items():
+            segment_embeddings = []
+            segment_details[speaker] = []
+
+            for i, seg in enumerate(speaker_segments):
+                # Skip extremely short segments that would cause model errors
+                if seg['duration'] < 0.1:
+                    segment_details[speaker].append(f"Segment {i+1}: SKIPPED (too short)")
+                    continue
+
+                embedding = diarizer.extract_speaker_embedding(
+                    audio_path,
+                    start_time=seg['start'],
+                    end_time=seg['end']
+                )
+                segment_embeddings.append(embedding)
+
+                # Calculate similarities to known speakers for this segment (for debugging)
+                similarities = []
+                for voice_name, known_embedding in self.known_speakers.items():
+                    similarity = self._cosine_similarity(embedding, known_embedding)
+                    similarities.append(f"{voice_name}:{similarity:.3f}")
+
+                similarities_str = " | ".join(similarities)
+                segment_details[speaker].append(f"Segment {i+1}: {seg['start']:.1f}-{seg['end']:.1f}s ({seg['duration']:.2f}s) → {similarities_str}")
+
+            if segment_embeddings:
+                # Calculate simple average embedding (equal weights)
+                if len(segment_embeddings) == 1:
+                    final_embedding = segment_embeddings[0]
+                else:
+                    final_embedding = np.mean(segment_embeddings, axis=0)
+
+                unique_speaker_embeddings[speaker] = final_embedding
+
+                # Calculate similarities for the averaged embedding
+                averaged_similarities = []
+                for voice_name, known_embedding in self.known_speakers.items():
+                    similarity = self._cosine_similarity(final_embedding, known_embedding)
+                    averaged_similarities.append(f"{voice_name}:{similarity:.3f}")
+
+                averaged_str = " | ".join(averaged_similarities)
+                segment_details[speaker].append(f"Final averaged embedding → {averaged_str}")
+
+        # Create segment embeddings list (reuse speaker embeddings for all segments)
+        segment_embeddings = []
+        for segment in segments:
+            if segment['speaker'] in unique_speaker_embeddings:
+                segment_embeddings.append(unique_speaker_embeddings[segment['speaker']])
+            else:
+                # Fallback for very short speakers with no valid embeddings
+                segment_embeddings.append(np.zeros(192))  # Placeholder
+
+        # Now match using the existing logic
+        matching_result = self.match_segments(diarization_result, segment_embeddings)
+
+        # Add debugging info to the result
+        matching_result['segment_details'] = segment_details
+        matching_result['unique_speaker_embeddings'] = unique_speaker_embeddings
+
+        return matching_result
+
     def match_segments(self, diarization_result: Dict, segment_embeddings: List[np.ndarray]) -> Dict:
         """Match diarized segments to known speakers."""
         segments = diarization_result['segments']
@@ -196,15 +288,25 @@ class SpeakerMatcher:
         speaker_mapping = {}
 
         for i, (segment, embedding) in enumerate(zip(segments, segment_embeddings)):
-            best_match = None
-            best_similarity = 0.0
-
-            # Compare against known speakers
+            # Calculate similarities to all known speakers
+            similarities = []
             for speaker_name, known_embedding in self.known_speakers.items():
                 similarity = self._cosine_similarity(embedding, known_embedding)
-                if similarity > best_similarity and similarity > self.similarity_threshold:
-                    best_similarity = similarity
-                    best_match = speaker_name
+                similarities.append((speaker_name, similarity))
+
+            # Sort by similarity (highest first)
+            similarities.sort(key=lambda x: x[1], reverse=True)
+
+            best_match = None
+            if similarities:
+                best_speaker, best_similarity = similarities[0]
+                second_best_similarity = similarities[1][1] if len(similarities) > 1 else 0.0
+
+                # Apply new matching criteria:
+                # 1. Best similarity >= 0.1
+                # 2. Best similarity is at least 0.1 higher than second best
+                if best_similarity >= 0.1 and (best_similarity - second_best_similarity) >= 0.1:
+                    best_match = best_speaker
 
             # Use original speaker ID if no match found
             if best_match is None:
@@ -212,18 +314,20 @@ class SpeakerMatcher:
                 if original_speaker not in speaker_mapping:
                     speaker_mapping[original_speaker] = f"Unknown_{len(speaker_mapping) + 1}"
                 matched_speaker = speaker_mapping[original_speaker]
+                final_similarity = similarities[0][1] if similarities else 0.0
             else:
                 matched_speaker = best_match
+                final_similarity = similarities[0][1]
 
             matched_segments.append({
                 **segment,
                 'matched_speaker': matched_speaker,
-                'similarity_score': best_similarity if best_match else 0.0
+                'similarity_score': final_similarity
             })
 
         logger.info("speaker_matching_complete",
                    total_segments=len(matched_segments),
-                   matched_speakers=len([s for s in matched_segments if s['similarity_score'] > self.similarity_threshold]))
+                   matched_speakers=len([s for s in matched_segments if not s['matched_speaker'].startswith('Unknown')]))
 
         return {
             'segments': matched_segments,
@@ -295,6 +399,122 @@ class Transcriber:
         logger.info("transcription_complete", segments_transcribed=len(transcribed_segments))
         return transcribed_segments
 
+    def transcribe_full_meeting(self, audio_path: Path, matched_segments: List[Dict]) -> Dict:
+        """Transcribe entire meeting and create speaker-annotated transcript."""
+        self._load_model()
+
+        logger.info("starting_full_meeting_transcription", audio_path=str(audio_path))
+
+        # Get full transcription with word timestamps
+        segments_result, info = self.model.transcribe(
+            str(audio_path),
+            word_timestamps=True
+        )
+
+        # Extract all words with timestamps
+        words_with_speakers = []
+        for segment in segments_result:
+            for word in segment.words:
+                speaker = self._assign_word_to_speaker(word, matched_segments)
+                words_with_speakers.append({
+                    'word': word.word,
+                    'start': word.start,
+                    'end': word.end,
+                    'speaker': speaker
+                })
+
+        # Format as conversation
+        formatted_transcript = self._format_as_conversation(words_with_speakers)
+
+        # Get full text
+        full_text = " ".join([word_info['word'] for word_info in words_with_speakers])
+
+        result = {
+            'full_text': full_text.strip(),
+            'speaker_annotated_transcript': formatted_transcript,
+            'word_count': len(words_with_speakers),
+            'duration': info.duration,
+            'language': info.language,
+            'words_with_speakers': words_with_speakers
+        }
+
+        logger.info("full_meeting_transcription_complete",
+                   word_count=len(words_with_speakers),
+                   duration=info.duration)
+
+        return result
+
+    def _assign_word_to_speaker(self, word, diarization_segments, tolerance=0.3):
+        """Assign a word to a speaker based on timestamp and sentence context."""
+        timestamp = word.start
+        word_text = word.word
+
+        # First: try direct hit (word timestamp within a segment)
+        for segment in diarization_segments:
+            if segment['start'] <= timestamp <= segment['end']:
+                return segment.get('matched_speaker', 'Unknown')
+
+        # Second: find all segments within tolerance
+        nearby_segments = []
+        for segment in diarization_segments:
+            distance = None
+
+            if timestamp < segment['start']:
+                distance = segment['start'] - timestamp
+                direction = 'next'
+            elif timestamp > segment['end']:
+                distance = timestamp - segment['end']
+                direction = 'previous'
+
+            if distance is not None and distance <= tolerance:
+                nearby_segments.append((direction, segment, distance))
+
+        if not nearby_segments:
+            return "UNASSIGNED"
+
+        # Third: Apply assignment rules
+        is_sentence_end = word_text.rstrip().endswith(('.', '!', '?'))
+
+        if is_sentence_end:
+            # Rule 1: End of sentence → assign to previous speaker
+            previous_segments = [(s, d) for direction, s, d in nearby_segments if direction == 'previous']
+            if previous_segments:
+                closest_previous = min(previous_segments, key=lambda x: x[1])[0]
+                return closest_previous.get('matched_speaker', 'Unknown')
+
+        # Rule 2: Otherwise → assign to closest segment
+        closest_segment = min(nearby_segments, key=lambda x: x[2])[1]
+        return closest_segment.get('matched_speaker', 'Unknown')
+
+    def _format_as_conversation(self, words_with_speakers):
+        """Group words by speaker and format as natural conversation."""
+        utterances = []
+        current_speaker = None
+        current_words = []
+
+        for word_info in words_with_speakers:
+            speaker = word_info['speaker']
+            word = word_info['word']
+
+            # Speaker change
+            if speaker != current_speaker:
+                if current_words and current_speaker:
+                    text = ''.join(current_words).strip()
+                    if text:
+                        utterances.append(f"{current_speaker}: \"{text}\"")
+                current_words = []
+                current_speaker = speaker
+
+            current_words.append(word)
+
+        # Don't forget the last utterance
+        if current_words and current_speaker:
+            text = ''.join(current_words).strip()
+            if text:
+                utterances.append(f"{current_speaker}: \"{text}\"")
+
+        return '\n\n'.join(utterances)
+
 
 class MeetingProcessor:
     """Main meeting processing pipeline orchestrator."""
@@ -304,7 +524,7 @@ class MeetingProcessor:
         self.diarizer = SpeakerDiarizer(hf_token)
         self.matcher = SpeakerMatcher()
         self.transcriber = Transcriber()
-        self.openai_api_key = openai_api_key
+        self.llm_service = LLMService(openai_api_key)
 
         # Initialize speaker database
         self.speaker_db = SpeakerDatabase(speaker_db_path)
@@ -312,7 +532,8 @@ class MeetingProcessor:
                    known_speakers=len(self.speaker_db.list_speakers()))
 
     def process_meeting(self, audio_path: Path, voice_samples: Optional[Dict[str, Path]] = None,
-                       num_speakers: Optional[int] = None) -> Dict:
+                       num_speakers: Optional[int] = None, generate_insights: bool = True,
+                       generate_all_action_views: bool = False) -> Dict:
         """Process a complete meeting: diarize, match speakers, transcribe."""
         logger.info("processing_meeting_start",
                    audio_path=str(audio_path),
@@ -409,10 +630,70 @@ class MeetingProcessor:
             }
         }
 
+        # Generate LLM insights if requested
+        if generate_insights and transcription_result.get('speaker_annotated_transcript'):
+            logger.info("generating_llm_insights",
+                       generate_all_views=generate_all_action_views)
+            try:
+                if generate_all_action_views:
+                    # Generate summary separately
+                    summary_result = self.llm_service.generate_meeting_summary(
+                        transcription_result['speaker_annotated_transcript'],
+                        {
+                            'duration': transcription_result['duration'] / 60,
+                            'participants_count': result['processing_metadata']['speakers_identified'],
+                            'segments_count': len(transcribed_segments)
+                        }
+                    )
+
+                    # Generate all action item views (general + speaker-specific)
+                    all_action_views = self.llm_service.extract_all_action_item_views(
+                        transcription_result['speaker_annotated_transcript']
+                    )
+
+                    # Combine results
+                    insights = {
+                        'summary': summary_result['summary'],
+                        'participants': summary_result['participants'],
+                        'action_items_all_views': all_action_views,
+                        'metadata': {
+                            'summary_metadata': summary_result['metadata'],
+                            'action_views_metadata': all_action_views['metadata'],
+                            'total_tokens_used': (
+                                (summary_result['metadata'].get('tokens_used', 0) or 0) +
+                                (all_action_views['metadata'].get('total_tokens_used', 0) or 0)
+                            ),
+                            'generation_type': 'summary_plus_all_action_views'
+                        }
+                    }
+                else:
+                    # Use existing comprehensive insights method (summary + general action items)
+                    insights = self.llm_service.generate_meeting_insights(
+                        transcription_result['speaker_annotated_transcript'],
+                        {
+                            'duration': transcription_result['duration'] / 60,  # Convert to minutes
+                            'participants_count': result['processing_metadata']['speakers_identified'],
+                            'segments_count': len(transcribed_segments)
+                        }
+                    )
+
+                result['llm_insights'] = insights
+                logger.info("llm_insights_generated",
+                           total_tokens=insights['metadata']['total_tokens_used'],
+                           generation_type=insights['metadata'].get('generation_type', 'standard'))
+
+            except Exception as e:
+                logger.error("llm_insights_generation_failed", error=str(e))
+                result['llm_insights'] = {
+                    'error': str(e),
+                    'message': 'LLM processing failed - meeting data is still available'
+                }
+
         logger.info("meeting_processing_complete",
                    segments=len(transcribed_segments),
                    diarized_speakers=result['diarization_metadata']['total_speakers'],
                    identified_speakers=result['processing_metadata']['speakers_identified'],
-                   database_speakers=len(self.speaker_db.list_speakers()))
+                   database_speakers=len(self.speaker_db.list_speakers()),
+                   llm_insights_generated=generate_insights and 'llm_insights' in result)
 
         return result
