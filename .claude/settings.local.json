@@ -1,11 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rm:*)",
-      "Bash(source:*)",
-      "Bash(pip install:*)",
-      "Bash(python:*)",
-      "Bash(timeout 600 python backend/test_full_pipeline.py)",
       "Bash(cd:*)"
     ],
     "deny": [],
