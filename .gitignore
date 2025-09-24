@@ -26,3 +26,4 @@ backend/data/
 # VSCode and IDE metadata
 .vscode/
 .idea/
+.claude/settings.local.json

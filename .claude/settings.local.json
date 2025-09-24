@@ -6,7 +6,11 @@
       "Bash(pip install:*)",
       "Bash(python:*)",
       "Bash(timeout 600 python backend/test_full_pipeline.py)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(grep:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nEnhance LLM integration with user notes and improved prompt formatting\n\n- Updated LLM service methods to support optional user notes parameter\n- Enhanced summary generation with structured markdown format (Executive Summary, Key Discussion Points, topical sections, Action Items, Next Steps)\n- Improved action item extraction with checkbox formatting and emoji prohibition\n- Added user notes support to all API endpoints (/summarize, /action-items, /action-items/all-views, /insights)\n- Updated pipeline processor to pass user notes through to LLM methods\n- Enhanced prompt engineering for professional business output\n- Added comprehensive LLM integration testing with all 5 test scenarios passing\n- Updated .gitignore to exclude test results and data directories\n- Verified enhanced prompts produce proper markdown structure with H2/H3 headers\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
