@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react'
-import { AppState, AppAction, SpeakerConfig, MeetingData } from '../types'
+import React, { createContext, useContext, useReducer, type ReactNode } from 'react'
+import type { AppState, AppAction, SpeakerConfig } from '../types'
 import { v4 as uuidv4 } from 'uuid'
 
 const initialState: AppState = {

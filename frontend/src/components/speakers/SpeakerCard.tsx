@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
-import { User, Mic, Upload, Trash2, Play, Square, Check, X } from 'lucide-react'
+import { User, Upload, Trash2, Check, X } from 'lucide-react'
 import { useSpeakers, useRecording } from '../../context/AppContext'
-import { SpeakerConfig } from '../../types'
+import type { SpeakerConfig } from '../../types'
 import AudioRecorder from '../recording/AudioRecorder'
 
 interface SpeakerCardProps {

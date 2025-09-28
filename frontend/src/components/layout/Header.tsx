@@ -3,7 +3,7 @@ import { FileText, Sparkles, Settings, MoreHorizontal } from 'lucide-react'
 import { useAppContext } from '../../context/AppContext'
 
 const Header: React.FC = () => {
-  const { state, dispatch } = useAppContext()
+  const { state } = useAppContext()
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(
     state.currentMeeting?.title || 'Untitled Meeting'

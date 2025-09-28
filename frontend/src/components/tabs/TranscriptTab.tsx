@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { Search, Copy, ChevronDown, ChevronRight, Clock, User } from 'lucide-react'
 import { useAppContext } from '../../context/AppContext'
-import { TranscriptSegment } from '../../types'
+import type { TranscriptSegment } from '../../types'
 
 const TranscriptTab: React.FC = () => {
   const { state } = useAppContext()

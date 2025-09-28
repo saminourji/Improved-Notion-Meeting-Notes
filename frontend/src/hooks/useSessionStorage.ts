@@ -30,7 +30,7 @@ export function useSessionStorage<T>(key: string, defaultValue: T) {
  */
 export function useMeetingPersistence() {
   const [sessionData, setSessionData] = useSessionStorage('meeting-session', {
-    speakers: [],
+    speakers: [] as any[],
     notes: '',
     title: '',
     timestamp: new Date().toISOString()

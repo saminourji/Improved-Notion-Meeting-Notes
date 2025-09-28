@@ -2,7 +2,7 @@ import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useAppContext } from '../../context/AppContext'
 import { CheckSquare, Square, User, Clock } from 'lucide-react'
-import { ActionItem } from '../../types'
+import type { ActionItem } from '../../types'
 
 const SummaryTab: React.FC = () => {
   const { state } = useAppContext()
@@ -136,7 +136,7 @@ const ActionItemsSection: React.FC<ActionItemsSectionProps> = ({
     item.assignee?.toLowerCase()
   ).filter(Boolean) || []
 
-  const hasUserSpeaker = participants.some(p => speakerNames.includes(p))
+  const hasUserSpeaker = participants.some((p: string) => speakerNames.includes(p))
   const sectionTitle = hasUserSpeaker ? "Your Action Items" : "Action Items"
 
   // Choose which view to display

@@ -1,10 +1,8 @@
-import axios, { AxiosError, AxiosResponse } from 'axios'
-import {
-  ProcessMeetingRequest,
+import axios, { AxiosError, type AxiosResponse } from 'axios'
+import type {
   ProcessMeetingResponse,
   SummaryResult,
-  ActionItemsResult,
-  TranscriptionResult
+  ActionItemsResult
 } from '../types'
 
 // API Configuration

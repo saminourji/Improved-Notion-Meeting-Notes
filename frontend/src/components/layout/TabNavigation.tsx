@@ -1,7 +1,7 @@
 import React from 'react'
-import { FileText, Edit, MessageSquare, CheckSquare } from 'lucide-react'
+import { FileText, Edit, MessageSquare } from 'lucide-react'
 import { useAppContext } from '../../context/AppContext'
-import { TabType } from '../../types'
+import type { TabType } from '../../types'
 
 const TabNavigation: React.FC = () => {
   const { state, dispatch } = useAppContext()

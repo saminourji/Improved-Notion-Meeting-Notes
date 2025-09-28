@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, Square, Play, Pause } from 'lucide-react'
+import { Mic, Square } from 'lucide-react'
 import { useRecording } from '../../context/AppContext'
 
 interface AudioRecorderProps {
@@ -29,7 +29,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<number | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
   // Cleanup on unmount
@@ -42,7 +42,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   // Duration timer
   useEffect(() => {
     if (recordingState === 'recording') {
-      intervalRef.current = setInterval(() => {
+      intervalRef.current = window.setInterval(() => {
         setDuration(prev => {
           const newDuration = prev + 1
           if (newDuration >= maxDuration) {
@@ -53,13 +53,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       }, 1000)
     } else {
       if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+        window.clearInterval(intervalRef.current)
       }
     }
 
     return () => {
       if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+        window.clearInterval(intervalRef.current)
       }
     }
   }, [recordingState, maxDuration])

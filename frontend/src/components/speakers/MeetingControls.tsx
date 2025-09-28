@@ -1,9 +1,9 @@
 import React, { useRef } from 'react'
-import { Mic, Upload, Play } from 'lucide-react'
+import { Upload } from 'lucide-react'
 import { useAppContext } from '../../context/AppContext'
 import AudioRecorder from '../recording/AudioRecorder'
 import { processMeeting, handleApiError } from '../../services/api'
-import { MeetingData } from '../../types'
+import type { MeetingData } from '../../types'
 
 interface MeetingControlsProps {
   canStartMeeting: boolean

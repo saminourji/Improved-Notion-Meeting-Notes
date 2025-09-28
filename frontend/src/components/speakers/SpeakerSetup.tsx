@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, Users, Mic, Upload, Play, Square } from 'lucide-react'
+import { Plus, Users } from 'lucide-react'
 import { useSpeakers, useAppContext } from '../../context/AppContext'
 import SpeakerCard from './SpeakerCard'
 import MeetingControls from './MeetingControls'
