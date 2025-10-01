@@ -23,6 +23,11 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "extra": "ignore"  # Ignore extra fields in .env
     }
+    
+    @property
+    def pipeline_log_path(self) -> Path:
+        """Path to the pipeline log file."""
+        return self.logs_dir / "pipeline.log"
 
 
 _settings: Optional[Settings] = None

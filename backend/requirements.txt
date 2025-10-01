@@ -5,7 +5,7 @@ pyannote.audio==3.1.0
 faster-whisper==1.0.0
 librosa==0.10.1
 pydub==0.25.1
-openai==1.35.0
+openai==1.54.3
 structlog==23.1.0
 torch==2.0.1
 torchaudio==2.0.2

@@ -30,12 +30,8 @@ class LLMService:
         self.client = openai.OpenAI(api_key=api_key, http_client=http_client)
         self.model = model
 
-        # Test if Responses API is available
-        self.use_responses_api = hasattr(self.client, 'responses')
-
         logger.info("llm_service_initialized",
-                   model=model,
-                   responses_api_available=self.use_responses_api)
+                   model=model)
 
     def generate_meeting_summary(self, speaker_annotated_transcript: str,
                                 meeting_metadata: Optional[Dict] = None,
@@ -115,25 +111,15 @@ FORMATTING REQUIREMENTS:
 - Organize action items as checkboxes with clear assignee and deadline information"""
 
         try:
-            if self.use_responses_api and hasattr(self.client, 'responses'):
-                # Use modern Responses API
-                response = self.client.responses.create(
-                    model=self.model,
-                    input=prompt
-                )
-                summary_content = response.output_text
-                tokens_used = getattr(response.usage, 'total_tokens', None) if hasattr(response, 'usage') else None
-
-            else:
-                # Fallback to chat completions
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3,  # Lower temperature for consistent, factual summaries
-                    max_tokens=1500
-                )
-                summary_content = response.choices[0].message.content
-                tokens_used = response.usage.total_tokens if response.usage else None
+            # Use chat completions API
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,  # Lower temperature for consistent, factual summaries
+                max_tokens=1500
+            )
+            summary_content = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens if response.usage else None
 
             # Parse the structured response
             result = {
@@ -141,7 +127,7 @@ FORMATTING REQUIREMENTS:
                 "participants": participants,
                 "metadata": {
                     "model_used": self.model,
-                    "api_used": "responses_api" if self.use_responses_api else "chat_completions",
+                    "api_used": "chat_completions",
                     "transcript_length": len(speaker_annotated_transcript),
                     "participants_count": len(participants),
                     "tokens_used": tokens_used
@@ -151,7 +137,7 @@ FORMATTING REQUIREMENTS:
             logger.info("meeting_summary_generated",
                        participants_count=len(participants),
                        tokens_used=tokens_used,
-                       api_used="responses_api" if self.use_responses_api else "chat_completions")
+                       api_used="chat_completions")
 
             return result
 
@@ -253,25 +239,15 @@ Return your response in JSON format with this structure:
 Only include actual action items and commitments, not general discussion points. If someone volunteers for something or is asked to do something, assign it to them. Include a 'checkbox_format' field with the markdown checkbox format for each item."""
 
         try:
-            if self.use_responses_api and hasattr(self.client, 'responses'):
-                # Use modern Responses API
-                response = self.client.responses.create(
-                    model=self.model,
-                    input=prompt
-                )
-                action_items_text = response.output_text
-                tokens_used = getattr(response.usage, 'total_tokens', None) if hasattr(response, 'usage') else None
-
-            else:
-                # Fallback to chat completions
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.2,  # Very low temperature for structured extraction
-                    max_tokens=1000
-                )
-                action_items_text = response.choices[0].message.content
-                tokens_used = response.usage.total_tokens if response.usage else None
+            # Use chat completions API
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,  # Very low temperature for structured extraction
+                max_tokens=1000
+            )
+            action_items_text = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens if response.usage else None
 
             # Try to extract JSON from the response
             try:
@@ -305,7 +281,7 @@ Only include actual action items and commitments, not general discussion points.
                 "action_items": action_items,
                 "metadata": {
                     "model_used": self.model,
-                    "api_used": "responses_api" if self.use_responses_api else "chat_completions",
+                    "api_used": "chat_completions",
                     "participants": participants,
                     "extraction_method": "llm_structured",
                     "view_type": view_type,
@@ -319,7 +295,7 @@ Only include actual action items and commitments, not general discussion points.
             logger.info("action_items_extracted",
                        total_items=total_items,
                        tokens_used=tokens_used,
-                       api_used="responses_api" if self.use_responses_api else "chat_completions")
+                       api_used="chat_completions")
 
             return result
 

@@ -23,26 +23,60 @@ processor: Optional[MeetingProcessor] = None
 @app.on_event("startup")
 async def startup_event():
     """Initialize the application."""
+    print("🔧 Initializing application...")
+    
+    try:
+        settings = get_settings()
+        print("✅ Settings loaded")
+        
+        setup_logging(settings)
+        print("✅ Logging configured")
+        
+        logger = structlog.get_logger(__name__)
+        
+        # Validate environment variables but don't initialize processor yet (lazy loading)
+        hf_token = os.getenv("HUGGINGFACE_TOKEN")
+        openai_key = os.getenv("OPENAI_API_KEY")
+
+        if not hf_token:
+            print("⚠️  HUGGINGFACE_TOKEN not set")
+            logger.warning("HUGGINGFACE_TOKEN environment variable not set - processor will fail if used")
+        else:
+            print("✅ HUGGINGFACE_TOKEN configured")
+        
+        if not openai_key:
+            print("⚠️  OPENAI_API_KEY not set")
+            logger.warning("OPENAI_API_KEY environment variable not set - processor will fail if used")
+        else:
+            print("✅ OPENAI_API_KEY configured")
+        
+        logger.info("application_startup_complete", 
+                    env_vars_configured=bool(hf_token and openai_key))
+        print("✅ Application startup complete!")
+        
+    except Exception as e:
+        print(f"❌ Startup failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+def get_processor():
+    """Lazy initialization of processor."""
     global processor
-
-    settings = get_settings()
-    setup_logging(settings)
-    logger = structlog.get_logger(__name__)
-
-    # Initialize processor with environment variables
-    hf_token = os.getenv("HUGGINGFACE_TOKEN")
-    openai_key = os.getenv("OPENAI_API_KEY")
-
-    if not hf_token:
-        logger.error("HUGGINGFACE_TOKEN environment variable required")
-        raise RuntimeError("HUGGINGFACE_TOKEN not configured")
-
-    if not openai_key:
-        logger.error("OPENAI_API_KEY environment variable required")
-        raise RuntimeError("OPENAI_API_KEY not configured")
-
-    processor = MeetingProcessor(hf_token, openai_key)
-    logger.info("application_startup_complete")
+    if processor is None:
+        logger = structlog.get_logger(__name__)
+        hf_token = os.getenv("HUGGINGFACE_TOKEN")
+        openai_key = os.getenv("OPENAI_API_KEY")
+        
+        if not hf_token:
+            raise RuntimeError("HUGGINGFACE_TOKEN not configured")
+        if not openai_key:
+            raise RuntimeError("OPENAI_API_KEY not configured")
+            
+        logger.info("initializing_meeting_processor")
+        processor = MeetingProcessor(hf_token, openai_key)
+        logger.info("meeting_processor_initialized")
+    return processor
 
 @app.get("/health")
 async def health_check():
@@ -62,8 +96,10 @@ async def process_meeting_endpoint(
     """Process a meeting with optional voice samples for speaker identification."""
     logger = structlog.get_logger(__name__)
 
-    if processor is None:
-        raise HTTPException(status_code=500, detail="Processor not initialized")
+    try:
+        proc = get_processor()
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     # Create temporary directory for this request
     request_id = str(uuid.uuid4())
@@ -104,7 +140,7 @@ async def process_meeting_endpoint(
                    request_id=request_id,
                    generate_insights=generate_insights,
                    generate_all_action_views=generate_all_action_views)
-        result = processor.process_meeting(meeting_path, voice_samples,
+        result = proc.process_meeting(meeting_path, voice_samples,
                                          generate_insights=generate_insights,
                                          generate_all_action_views=generate_all_action_views)
 
@@ -124,16 +160,30 @@ async def process_meeting_endpoint(
         import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-        return JSONResponse(content={
+        # Flatten response structure to match frontend expectations
+        response_data = {
             "success": True,
             "request_id": request_id,
-            "result": result,
+            "transcription": {
+                "segments": result['segments']
+            },
             "metadata": {
                 "segments": len(result['segments']),
                 "speakers": result['processing_metadata']['speakers_identified'],
                 "duration": result['processing_metadata']['total_duration']
             }
-        })
+        }
+        
+        # Add LLM insights if available
+        if 'llm_insights' in result and isinstance(result['llm_insights'], dict):
+            if 'summary' in result['llm_insights']:
+                response_data['summary'] = result['llm_insights']['summary']
+            if 'action_items_by_speaker' in result['llm_insights']:
+                response_data['action_items_by_speaker'] = result['llm_insights']['action_items_by_speaker']
+            if 'participants' in result['llm_insights']:
+                response_data['participants'] = result['llm_insights']['participants']
+        
+        return JSONResponse(content=response_data)
 
     except Exception as e:
         logger.exception("meeting_processing_failed",
@@ -155,8 +205,10 @@ async def generate_summary_endpoint(
     """Generate a meeting summary from a speaker-annotated transcript."""
     logger = structlog.get_logger(__name__)
 
-    if processor is None:
-        raise HTTPException(status_code=500, detail="Processor not initialized")
+    try:
+        proc = get_processor()
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     try:
         logger.info("generating_summary_from_transcript",
@@ -166,7 +218,7 @@ async def generate_summary_endpoint(
         if duration_minutes:
             metadata['duration'] = duration_minutes
 
-        summary_result = processor.llm_service.generate_meeting_summary(transcript, metadata, user_notes)
+        summary_result = proc.llm_service.generate_meeting_summary(transcript, metadata, user_notes)
 
         return JSONResponse(content={
             "success": True,
@@ -194,15 +246,17 @@ async def extract_action_items_endpoint(
     """
     logger = structlog.get_logger(__name__)
 
-    if processor is None:
-        raise HTTPException(status_code=500, detail="Processor not initialized")
+    try:
+        proc = get_processor()
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     try:
         logger.info("extracting_action_items_from_transcript",
                    transcript_length=len(transcript),
                    target_speaker=speaker)
 
-        action_items_result = processor.llm_service.extract_action_items_by_speaker(
+        action_items_result = proc.llm_service.extract_action_items_by_speaker(
             transcript, target_speaker=speaker, user_notes=user_notes
         )
 
@@ -224,14 +278,16 @@ async def extract_all_action_items_views_endpoint(
     """Extract all action item views: general + speaker-specific views for each participant."""
     logger = structlog.get_logger(__name__)
 
-    if processor is None:
-        raise HTTPException(status_code=500, detail="Processor not initialized")
+    try:
+        proc = get_processor()
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     try:
         logger.info("extracting_all_action_item_views_from_transcript",
                    transcript_length=len(transcript))
 
-        all_views_result = processor.llm_service.extract_all_action_item_views(transcript, user_notes)
+        all_views_result = proc.llm_service.extract_all_action_item_views(transcript, user_notes)
 
         return JSONResponse(content={
             "success": True,
@@ -253,8 +309,10 @@ async def generate_insights_endpoint(
     """Generate comprehensive meeting insights (summary + action items) from a transcript."""
     logger = structlog.get_logger(__name__)
 
-    if processor is None:
-        raise HTTPException(status_code=500, detail="Processor not initialized")
+    try:
+        proc = get_processor()
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     try:
         logger.info("generating_comprehensive_insights_from_transcript",
@@ -264,7 +322,7 @@ async def generate_insights_endpoint(
         if duration_minutes:
             metadata['duration'] = duration_minutes
 
-        insights = processor.llm_service.generate_meeting_insights(transcript, metadata, user_notes)
+        insights = proc.llm_service.generate_meeting_insights(transcript, metadata, user_notes)
 
         return JSONResponse(content={
             "success": True,

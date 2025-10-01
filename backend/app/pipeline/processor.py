@@ -610,6 +610,9 @@ class MeetingProcessor:
 
         # Transcribe segments
         transcribed_segments = self.transcriber.transcribe_segments(wav_path, matching_result['segments'])
+        
+        # Get full meeting transcription with speaker annotations
+        transcription_result = self.transcriber.transcribe_full_meeting(wav_path, matching_result['segments'])
 
         # Compile final result
         result = {
