@@ -25,6 +25,11 @@ import {
 } from 'lucide-react';
 import { ParticipantInput } from './participant-input';
 import { ResultsDisplay } from './results-display';
+import dynamic from 'next/dynamic';
+import { TabNavigation, MeetingTab } from '@/components/meeting/tabs/tab-navigation';
+import { SummaryTab } from '@/components/meeting/tabs/summary-tab';
+import { NotesTab } from '@/components/meeting/tabs/notes-tab';
+const TranscriptTab = dynamic(() => import('@/components/meeting/tabs/transcript-tab'), { ssr: false });
 import { apiService } from '@/lib/api';
 
 interface MeetingBlockProps {
@@ -112,6 +117,7 @@ export const MeetingBlock = ({ block, editor }: any) => {
   const [isDragging, setIsDragging] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [activeTab, setActiveTab] = useState<MeetingTab>('notes');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<number | null>(null);
@@ -174,6 +180,13 @@ export const MeetingBlock = ({ block, editor }: any) => {
       setRecordingTime(block.props.duration);
     }
   }, [block.props.duration]);
+
+  // Auto-switch to summary after completion
+  useEffect(() => {
+    if (block.props.status === 'completed') {
+      setActiveTab('summary');
+    }
+  }, [block.props.status]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -361,17 +374,11 @@ export const MeetingBlock = ({ block, editor }: any) => {
 
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-0">
-            <button className="flex items-center gap-3 h-[33px] px-3 bg-[#EFEEEA] border-none rounded-full cursor-pointer" style={{ fontFamily: 'Inter, sans-serif' }}>
-              <Edit3 size={18} strokeWidth={2} className="text-[#1F1F1F]" />
-              <span className="text-sm font-medium text-[#1F1F1F]">Notes</span>
-            </button>
-
-            {(currentState === 'state2_duringRecording' || currentState === 'state3_processing') && (
-              <div className="flex items-center gap-2 px-6 py-3 bg-transparent rounded-full cursor-pointer ml-2">
-                <FileText size={20} strokeWidth={2} className="text-[#6B6B6B]" />
-                <span className="text-base font-medium text-[#6B6B6B]">Transcript</span>
-              </div>
-            )}
+            <TabNavigation
+              activeTab={activeTab}
+              onTabChange={(t) => setActiveTab(t)}
+              showTranscript={block.props.status === 'completed' && getTranscript().length > 0}
+            />
 
             <AudioVisualization isActive={currentState === 'state2_duringRecording'} />
           </div>
@@ -482,15 +489,17 @@ export const MeetingBlock = ({ block, editor }: any) => {
         )}
 
         {block.props.status === 'completed' && (
-          <ResultsDisplay 
-            transcript={getTranscript()}
-            summary={block.props.summary || ""}
-            actionItems={getActionItems()}
-            participants={getParticipants()}
-            duration={block.props.duration}
-            showResults={showResults}
-            onToggleResults={() => setShowResults(!showResults)}
-          />
+          <div className="mt-4">
+            {activeTab === 'summary' && (
+              <SummaryTab summary={block.props.summary || ""} actionItems={getActionItems()} />
+            )}
+            {activeTab === 'notes' && (
+              <NotesTab />
+            )}
+            {activeTab === 'transcript' && (
+              <TranscriptTab transcript={getTranscript()} />
+            )}
+          </div>
         )}
 
         {currentState !== 'state3_processing' && (

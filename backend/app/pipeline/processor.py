@@ -7,7 +7,7 @@ import numpy as np
 from pydub import AudioSegment
 import torch
 from pyannote.audio import Pipeline
-from speechbrain.inference.speaker import EncoderClassifier
+from speechbrain.pretrained import EncoderClassifier
 from faster_whisper import WhisperModel
 import structlog
 from .speaker_database import SpeakerDatabase

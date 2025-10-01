@@ -7,9 +7,12 @@ librosa==0.10.1
 pydub==0.25.1
 openai==1.54.3
 structlog==23.1.0
-torch==2.0.1
-torchaudio==2.0.2
-numpy==1.24.3
+torch==2.4.1
+torchaudio==2.4.1
+numpy==1.26.4
 pydantic-settings==2.10.1
 python-dotenv==1.1.1
 speechbrain==0.5.16
+click==8.1.7
+pydantic==2.7.4
+starlette==0.27.0

@@ -50,7 +50,6 @@ export const ResultsDisplay = ({
 }: ResultsDisplayProps) => {
   const [expandedSections, setExpandedSections] = useState({
     summary: true,
-    transcript: false,
     actionItems: true
   });
 
@@ -71,18 +70,7 @@ export const ResultsDisplay = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Get speaker color
-  const getSpeakerColor = (speaker: string): string => {
-    const colors = [
-      'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30',
-      'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30',
-      'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/30',
-      'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30',
-      'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30',
-    ];
-    const hash = speaker.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
+  // transcript color helpers removed; transcript moved to TranscriptTab
 
   // Copy to clipboard
   const copyToClipboard = (text: string) => {
@@ -241,51 +229,7 @@ export const ResultsDisplay = ({
         )}
       </div>
 
-      {/* Transcript Section */}
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
-        <button
-          onClick={() => toggleSection('transcript')}
-          className="flex items-center justify-between w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            {expandedSections.transcript ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <FileText className="w-4 h-4" />
-            <span className="font-medium">Full Transcript ({transcript.length} segments)</span>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const fullTranscript = transcript.map(seg => `[${formatTime(seg.start)}] ${seg.speaker}: ${seg.text}`).join('\n');
-              copyToClipboard(fullTranscript);
-            }}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-          >
-            <Copy className="w-4 h-4" />
-          </button>
-        </button>
-        
-        {expandedSections.transcript && (
-          <div className="px-4 pb-4">
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {transcript.map((segment, index) => (
-                <div key={index} className="flex gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-mono min-w-[3rem]">
-                    {formatTime(segment.start)}
-                  </div>
-                  <div className="flex-1">
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium mr-2 ${getSpeakerColor(segment.speaker)}`}>
-                      {segment.speaker}
-                    </span>
-                    <span className="text-sm text-gray-900 dark:text-gray-100">
-                      {segment.text}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Transcript moved to dedicated TranscriptTab */}
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-2 pt-2">
