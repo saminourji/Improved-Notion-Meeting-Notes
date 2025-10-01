@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ChevronDown, ChevronRight, MessageSquare, Copy, CheckSquare } from "lucide-react";
 
 interface ActionItem {
@@ -46,7 +48,21 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({ summary, actionItems }) 
         {openSummary && (
           <div className="px-4 pb-4">
             <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded text-sm leading-relaxed">
-              {summary}
+              <ReactMarkdown remarkPlugins={[remarkGfm]}
+                components={{
+                  h2: ({ children }) => <h2 className="text-lg font-semibold mb-3">{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-md font-medium mb-2">{children}</h3>,
+                  ul: ({ children }) => <ul className="list-disc ml-6 mb-4">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal ml-6 mb-4">{children}</ol>,
+                  li: ({ children }) => <li className="mb-1">{children}</li>,
+                  p: ({ children }) => <p className="mb-2">{children}</p>,
+                  input: ({ checked }) => (
+                    <input type="checkbox" readOnly checked={Boolean(checked)} className="mr-2 align-middle" />
+                  )
+                }}
+              >
+                {summary}
+              </ReactMarkdown>
             </div>
           </div>
         )}

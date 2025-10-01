@@ -378,6 +378,7 @@ export const MeetingBlock = ({ block, editor }: any) => {
               activeTab={activeTab}
               onTabChange={(t) => setActiveTab(t)}
               showTranscript={block.props.status === 'completed' && getTranscript().length > 0}
+              isCompleted={block.props.status === 'completed'}
             />
 
             <AudioVisualization isActive={currentState === 'state2_duringRecording'} />
@@ -458,11 +459,13 @@ export const MeetingBlock = ({ block, editor }: any) => {
         </div>
       </div>
 
-        <div className="mt-5">
-          <p className="font-normal leading-5" style={{ fontSize: '18px', color: '#9B9B9B', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.04em' }}>
-            Notion AI will summarize the notes and transcript
-          </p>
-        </div>
+        {block.props.status !== 'completed' && (
+          <div className="mt-5">
+            <p className="font-normal leading-5" style={{ fontSize: '18px', color: '#9B9B9B', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.04em' }}>
+              Notion AI will summarize the notes and transcript
+            </p>
+          </div>
+        )}
 
         {block.props.status === 'error' && block.props.errorMessage && (
           <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
