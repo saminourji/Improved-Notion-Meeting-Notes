@@ -26,3 +26,17 @@ backend/data/
 # VSCode and IDE metadata
 .vscode/
 .idea/
+
+# Next.js
+.next/
+out/
+build/
+.vercel/
+
+# Frontend dependencies and env files
+frontend/node_modules/
+frontend/.env.local
+frontend/.env*.local
+
+# Backup directories
+frontend-backup/

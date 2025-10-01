@@ -1,0 +1,480 @@
+{
+    "designTokens": {
+      "colors": {
+        "background": {
+          "primary": "#FFFFFF",
+          "secondary": "#F7F7F7",
+          "tertiary": "#EFEFEF"
+        },
+        "text": {
+          "primary": "#1A1A1A",
+          "secondary": "#9B9B9B",
+          "tertiary": "#B8B8B8"
+        },
+        "button": {
+          "primaryBlue": "#3B82F6",
+          "primaryBlueHover": "#2563EB",
+          "stopRed": "#EF4444",
+          "stopRedBackground": "#FEE2E2"
+        },
+        "icon": {
+          "default": "#6B6B6B",
+          "active": "#3B82F6"
+        },
+        "border": {
+          "light": "#E5E5E5"
+        }
+      },
+      "typography": {
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "sizes": {
+          "title": "36px",
+          "subtitle": "20px",
+          "body": "16px",
+          "button": "18px",
+          "small": "14px"
+        },
+        "weights": {
+          "bold": 700,
+          "semibold": 600,
+          "medium": 500,
+          "regular": 400
+        }
+      },
+      "spacing": {
+        "xs": "8px",
+        "sm": "12px",
+        "md": "16px",
+        "lg": "24px",
+        "xl": "32px",
+        "xxl": "48px"
+      },
+      "borderRadius": {
+        "button": "12px",
+        "pill": "24px",
+        "container": "16px"
+      },
+      "shadows": {
+        "subtle": "0 1px 3px rgba(0, 0, 0, 0.05)",
+        "button": "0 2px 8px rgba(59, 130, 246, 0.2)"
+      }
+    },
+    "layout": {
+      "container": {
+        "width": "100%",
+        "maxWidth": "1400px",
+        "padding": "32px",
+        "backgroundColor": "#FFFFFF",
+        "borderRadius": "16px",
+        "border": "1px solid #E5E5E5",
+        "boxShadow": "0 1px 3px rgba(0, 0, 0, 0.05)"
+      },
+      "contentArea": {
+        "marginTop": "32px",
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "24px"
+      }
+    },
+    "components": {
+      "header": {
+        "display": "flex",
+        "alignItems": "baseline",
+        "gap": "8px",
+        "marginBottom": "32px",
+        "title": {
+          "text": "Meeting",
+          "fontSize": "36px",
+          "fontWeight": 700,
+          "color": "#1A1A1A",
+          "letterSpacing": "-0.5px"
+        },
+        "timestamp": {
+          "text": "@Today",
+          "fontSize": "36px",
+          "fontWeight": 400,
+          "color": "#9B9B9B",
+          "letterSpacing": "-0.5px"
+        }
+      },
+      "tabBar": {
+        "display": "flex",
+        "alignItems": "center",
+        "gap": "0px",
+        "notesTab": {
+          "display": "flex",
+          "alignItems": "center",
+          "gap": "8px",
+          "padding": "12px 24px",
+          "backgroundColor": "#EFEFEF",
+          "borderRadius": "24px",
+          "border": "none",
+          "cursor": "pointer",
+          "icon": {
+            "type": "pen/pencil",
+            "size": "20px",
+            "strokeWidth": "2px",
+            "color": "#1A1A1A"
+          },
+          "label": {
+            "text": "Notes",
+            "fontSize": "18px",
+            "fontWeight": 600,
+            "color": "#1A1A1A"
+          }
+        },
+        "transcriptTab": {
+          "display": "flex",
+          "alignItems": "center",
+          "gap": "8px",
+          "padding": "12px 24px",
+          "backgroundColor": "transparent",
+          "borderRadius": "24px",
+          "border": "none",
+          "cursor": "pointer",
+          "marginLeft": "8px",
+          "icon": {
+            "type": "microphone/waveform",
+            "size": "20px",
+            "strokeWidth": "2px",
+            "color": "#6B6B6B"
+          },
+          "label": {
+            "text": "Transcript",
+            "fontSize": "18px",
+            "fontWeight": 500,
+            "color": "#6B6B6B"
+          }
+        }
+      },
+      "bodyText": {
+        "text": "Notion AI will summarize the notes and transcript",
+        "fontSize": "16px",
+        "fontWeight": 400,
+        "color": "#B8B8B8",
+        "lineHeight": "24px",
+        "marginTop": "24px"
+      },
+      "footerSection": {
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "space-between",
+        "marginTop": "48px",
+        "consentText": {
+          "text": "By starting, you confirm everyone being transcribed has given consent.",
+          "fontSize": "14px",
+          "fontWeight": 400,
+          "color": "#9B9B9B",
+          "lineHeight": "20px"
+        },
+        "controls": {
+          "display": "flex",
+          "alignItems": "center",
+          "gap": "16px"
+        }
+      },
+      "iconButtons": {
+        "speakerButton": {
+          "width": "40px",
+          "height": "40px",
+          "display": "flex",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "backgroundColor": "transparent",
+          "border": "none",
+          "borderRadius": "8px",
+          "cursor": "pointer",
+          "icon": {
+            "type": "speaker/volume",
+            "size": "24px",
+            "strokeWidth": "2px",
+            "color": "#6B6B6B"
+          }
+        },
+        "copyButton": {
+          "width": "40px",
+          "height": "40px",
+          "display": "flex",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "backgroundColor": "transparent",
+          "border": "none",
+          "borderRadius": "8px",
+          "cursor": "pointer",
+          "icon": {
+            "type": "copy/duplicate",
+            "size": "24px",
+            "strokeWidth": "2px",
+            "color": "#6B6B6B"
+          }
+        },
+        "settingsButton": {
+          "width": "40px",
+          "height": "40px",
+          "display": "flex",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "backgroundColor": "transparent",
+          "border": "none",
+          "borderRadius": "8px",
+          "cursor": "pointer",
+          "icon": {
+            "type": "sliders/settings",
+            "size": "24px",
+            "strokeWidth": "2px",
+            "color": "#6B6B6B"
+          }
+        },
+        "magicWandButton": {
+          "width": "40px",
+          "height": "40px",
+          "display": "flex",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "backgroundColor": "transparent",
+          "border": "none",
+          "borderRadius": "8px",
+          "cursor": "pointer",
+          "icon": {
+            "type": "magic-wand/sparkles",
+            "size": "24px",
+            "strokeWidth": "2px",
+            "color": "#6B6B6B"
+          }
+        }
+      }
+    },
+    "states": {
+      "state1_beforeRecording": {
+        "description": "Initial state before transcription starts",
+        "header": {
+          "visible": true,
+          "unchanged": true
+        },
+        "tabBar": {
+          "notesTab": {
+            "backgroundColor": "#EFEFEF",
+            "textColor": "#1A1A1A",
+            "iconColor": "#1A1A1A",
+            "fontWeight": 600
+          },
+          "transcriptTab": {
+            "visible": false
+          }
+        },
+        "bodyText": {
+          "visible": true,
+          "unchanged": true
+        },
+        "footer": {
+          "consentText": {
+            "visible": true,
+            "unchanged": true
+          },
+          "iconButtons": {
+            "speakerButton": {
+              "visible": true,
+              "position": "right side, before primaryButton"
+            },
+            "copyButton": {
+              "visible": true,
+              "position": "right side, after speakerButton"
+            }
+          },
+          "primaryButton": {
+            "type": "startTranscribing",
+            "text": "Start transcribing",
+            "fontSize": "18px",
+            "fontWeight": 600,
+            "color": "#FFFFFF",
+            "backgroundColor": "#3B82F6",
+            "padding": "14px 28px",
+            "borderRadius": "12px",
+            "border": "none",
+            "cursor": "pointer",
+            "boxShadow": "0 2px 8px rgba(59, 130, 246, 0.2)",
+            "position": "far right",
+            "minWidth": "200px"
+          }
+        }
+      },
+      "state2_duringRecording": {
+        "description": "Active recording state with audio visualization",
+        "header": {
+          "visible": true,
+          "unchanged": true
+        },
+        "tabBar": {
+          "notesTab": {
+            "backgroundColor": "#EFEFEF",
+            "textColor": "#1A1A1A",
+            "iconColor": "#1A1A1A",
+            "fontWeight": 600
+          },
+          "transcriptTab": {
+            "visible": true,
+            "backgroundColor": "transparent",
+            "textColor": "#6B6B6B",
+            "iconColor": "#6B6B6B",
+            "fontWeight": 500
+          },
+          "audioVisualization": {
+            "visible": true,
+            "position": "between transcriptTab and right controls",
+            "display": "flex",
+            "alignItems": "center",
+            "gap": "3px",
+            "marginLeft": "24px",
+            "marginRight": "auto",
+            "bars": {
+              "count": "approximately 60-70 dots",
+              "dotSize": "4px",
+              "dotShape": "circle",
+              "colors": ["#9B9B9B", "#6B6B6B", "#1A1A1A"],
+              "colorDistribution": "Most dots are #E5E5E5 (light gray), active/speaking dots are darker (#6B6B6B to #1A1A1A)",
+              "pattern": "dots arranged in horizontal line with varying opacity/color to simulate audio levels",
+              "animation": "dots pulse and change intensity to represent audio input levels"
+            }
+          }
+        },
+        "bodyText": {
+          "visible": true,
+          "unchanged": true
+        },
+        "footer": {
+          "consentText": {
+            "visible": true,
+            "unchanged": true
+          },
+          "iconButtons": {
+            "magicWandButton": {
+              "visible": true,
+              "position": "right side, first icon"
+            },
+            "settingsButton": {
+              "visible": true,
+              "position": "right side, second icon"
+            },
+            "speakerButton": {
+              "visible": true,
+              "position": "right side, third icon"
+            },
+            "copyButton": {
+              "visible": true,
+              "position": "right side, fourth icon"
+            }
+          },
+          "primaryButton": {
+            "type": "stop",
+            "text": "Stop",
+            "fontSize": "18px",
+            "fontWeight": 600,
+            "color": "#EF4444",
+            "backgroundColor": "#FEE2E2",
+            "padding": "14px 28px",
+            "borderRadius": "12px",
+            "border": "none",
+            "cursor": "pointer",
+            "boxShadow": "none",
+            "position": "far right",
+            "minWidth": "120px"
+          }
+        }
+      },
+      "state3_processing": {
+        "description": "Post-recording processing state",
+        "header": {
+          "visible": true,
+          "unchanged": true
+        },
+        "tabBar": {
+          "notesTab": {
+            "backgroundColor": "#EFEFEF",
+            "textColor": "#1A1A1A",
+            "iconColor": "#1A1A1A",
+            "fontWeight": 600
+          },
+          "transcriptTab": {
+            "visible": true,
+            "backgroundColor": "transparent",
+            "textColor": "#6B6B6B",
+            "iconColor": "#6B6B6B",
+            "fontWeight": 500
+          },
+          "audioVisualization": {
+            "visible": false
+          }
+        },
+        "bodyText": {
+          "visible": true,
+          "unchanged": true
+        },
+        "footer": {
+          "consentText": {
+            "visible": false
+          },
+          "iconButtons": {
+            "settingsButton": {
+              "visible": true,
+              "position": "right side, first icon"
+            }
+          },
+          "processingIndicator": {
+            "visible": true,
+            "position": "far right, replaces primaryButton",
+            "display": "flex",
+            "alignItems": "center",
+            "gap": "12px",
+            "animation": {
+              "type": "dots",
+              "icon": "three colored dots (red, yellow, green OR multicolor gradient)",
+              "size": "24px",
+              "behavior": "pulsing/animated dots indicating processing"
+            },
+            "label": {
+              "text": "Thinking",
+              "fontSize": "18px",
+              "fontWeight": 500,
+              "color": "#9B9B9B"
+            }
+          }
+        }
+      }
+    },
+    "transitions": {
+      "state1_to_state2": {
+        "trigger": "Click 'Start transcribing' button",
+        "changes": [
+          "Transcript tab appears next to Notes tab",
+          "Audio visualization bar appears between tabs and controls",
+          "Magic wand and Settings icons appear in footer controls",
+          "Start transcribing button changes to Stop button (blue → red background, white text → red text)"
+        ],
+        "duration": "300ms",
+        "easing": "ease-in-out"
+      },
+      "state2_to_state3": {
+        "trigger": "Click 'Stop' button",
+        "changes": [
+          "Audio visualization disappears",
+          "Consent text disappears",
+          "Most icon buttons disappear (only Settings remains)",
+          "Stop button is replaced with 'Thinking' processing indicator"
+        ],
+        "duration": "300ms",
+        "easing": "ease-in-out"
+      }
+    },
+    "measurements": {
+      "containerWidth": "1400px (approximate)",
+      "containerHeight": "auto (minimum 280px visible in screenshots)",
+      "headerHeight": "48px",
+      "tabBarHeight": "48px",
+      "buttonHeight": "48px",
+      "iconSize": "24px",
+      "tabPadding": "12px 24px",
+      "buttonPadding": "14px 28px",
+      "verticalSpacing": "32px between major sections",
+      "horizontalGap": "16px between footer icons"
+    }
+  }

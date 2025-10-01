@@ -87,10 +87,7 @@ Backend will be available at: `http://localhost:8000`
 
 ```bash
 # In frontend directory
-cd frontend
-
-# Start React development server
-npm run dev
+cd frontend && npm run dev
 ```
 
 Frontend will be available at: `http://localhost:5173`
