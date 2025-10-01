@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pathlib import Path
 from typing import List, Optional
@@ -16,6 +17,19 @@ from .core.logging import setup_logging
 load_dotenv()
 
 app = FastAPI(title="Notion Meeting Notes", version="1.0.0")
+
+# Configure CORS to allow frontend connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "https://your-frontend-domain.com"  # Update this with your production domain
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Global processor instance
 processor: Optional[MeetingProcessor] = None

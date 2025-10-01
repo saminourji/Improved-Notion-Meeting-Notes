@@ -27,3 +27,17 @@ backend/data/
 .vscode/
 .idea/
 .claude/settings.local.json
+
+# Next.js
+.next/
+out/
+build/
+.vercel/
+
+# Frontend dependencies and env files
+frontend/node_modules/
+frontend/.env.local
+frontend/.env*.local
+
+# Backup directories
+frontend-backup/
