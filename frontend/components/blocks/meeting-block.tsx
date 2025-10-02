@@ -21,7 +21,9 @@ import {
   Volume2,
   Copy,
   Sliders,
-  Wand2
+  Wand2,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 import { ParticipantInput } from './participant-input';
 import { ResultsDisplay } from './results-display';
@@ -31,6 +33,7 @@ import { SummaryTab } from '@/components/meeting/tabs/summary-tab';
 import { NotesTab } from '@/components/meeting/tabs/notes-tab';
 const TranscriptTab = dynamic(() => import('@/components/meeting/tabs/transcript-tab'), { ssr: false });
 import { apiService } from '@/lib/api';
+import { formatSeconds, isMeetingProcessing, hasSummary } from '@/lib/utils';
 
 interface MeetingBlockProps {
   id: string;
@@ -109,6 +112,47 @@ const ProcessingIndicator = () => {
   );
 };
 
+// Feedback Component
+const FeedbackSection = () => {
+  const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
+
+  const handleFeedback = (type: 'positive' | 'negative') => {
+    setFeedback(type);
+    // Here you could send feedback to analytics or backend
+    console.log(`Feedback: ${type}`);
+  };
+
+  return (
+    <div className="mt-6 flex items-center gap-3">
+      <span className="text-sm text-[#6B6B6B] font-medium">Was this helpful?</span>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => handleFeedback('positive')}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+            feedback === 'positive' 
+              ? 'bg-green-100 text-green-600' 
+              : 'bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-500'
+          }`}
+          title="Thumbs up"
+        >
+          <ThumbsUp size={16} strokeWidth={2} />
+        </button>
+        <button
+          onClick={() => handleFeedback('negative')}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+            feedback === 'negative' 
+              ? 'bg-red-100 text-red-600' 
+              : 'bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-500'
+          }`}
+          title="Thumbs down"
+        >
+          <ThumbsDown size={16} strokeWidth={2} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const MeetingBlock = ({ block, editor }: any) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -164,6 +208,18 @@ export const MeetingBlock = ({ block, editor }: any) => {
     }
   };
 
+  const buildActionItemsMarkdown = (items: Array<{ id: string; text: string; assignee?: string; completed?: boolean }>) => {
+    if (!items || items.length === 0) return "";
+    const lines: string[] = [];
+    lines.push("\n\n## Action Items\n");
+    for (const item of items) {
+      const checked = item.completed ? "x" : " ";
+      const assignee = item.assignee ? ` (Assigned to: ${item.assignee})` : "";
+      lines.push(`- [${checked}] ${item.text}${assignee}`);
+    }
+    return lines.join("\n");
+  };
+
   // Health check on component mount
   useEffect(() => {
     apiService.healthCheck().then(healthy => {
@@ -181,12 +237,12 @@ export const MeetingBlock = ({ block, editor }: any) => {
     }
   }, [block.props.duration]);
 
-  // Auto-switch to summary after completion
+  // Auto-switch to summary after completion only if summary exists
   useEffect(() => {
-    if (block.props.status === 'completed') {
+    if (block.props.status === 'completed' && hasSummary(block.props)) {
       setActiveTab('summary');
     }
-  }, [block.props.status]);
+  }, [block.props.status, block.props.summary]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -204,7 +260,13 @@ export const MeetingBlock = ({ block, editor }: any) => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      
+      // Use WebM/Opus when supported, fallback to default
+      const mimeType = 'audio/webm;codecs=opus';
+      const isWebMSupported = MediaRecorder.isTypeSupported(mimeType);
+      const recorder = isWebMSupported 
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -231,9 +293,19 @@ export const MeetingBlock = ({ block, editor }: any) => {
     } catch (err) {
       console.error('Error starting recording:', err);
       let errorMessage = "Failed to start recording. Please check microphone permissions.";
+      
       if (err instanceof Error) {
-        errorMessage = err.message;
+        if (err.name === 'NotAllowedError') {
+          errorMessage = "Microphone access denied. Please allow microphone access and try again.";
+        } else if (err.name === 'NotFoundError') {
+          errorMessage = "No microphone found. Please connect a microphone and try again.";
+        } else if (err.name === 'NotSupportedError') {
+          errorMessage = "Recording not supported in this browser. Please use Chrome, Edge, or Firefox, or upload an audio file instead.";
+        } else {
+          errorMessage = err.message;
+        }
       }
+      
       updateBlock({ status: "error", errorMessage });
       setIsRecording(false);
     }
@@ -251,8 +323,10 @@ export const MeetingBlock = ({ block, editor }: any) => {
 
       setTimeout(() => {
         if (audioChunks.length > 0) {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-          processAudio(audioBlob);
+          // Create WebM blob and wrap in File
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+          processAudio(audioFile);
         } else {
           updateBlock({ status: "error", errorMessage: "No audio recorded." });
         }
@@ -276,20 +350,28 @@ export const MeetingBlock = ({ block, editor }: any) => {
     }
   };
 
-  const processAudio = async (audioBlob: Blob) => {
+  const processAudio = async (audioInput: File | Blob) => {
     updateBlock({ status: "processing" });
     
     try {
-      // Convert Blob to File
-      const audioFile = new File([audioBlob], `meeting-${Date.now()}.wav`, { type: 'audio/wav' });
+      // Ensure we have a File with proper name and type
+      let audioFile: File;
+      if (audioInput instanceof File) {
+        audioFile = audioInput;
+      } else {
+        // Convert Blob to File with appropriate name and type
+        const fileName = `meeting-${Date.now()}.webm`;
+        audioFile = new File([audioInput], fileName, { type: 'audio/webm' });
+      }
       
       // Get participants to pass as speaker names
       const participants = getParticipants();
+      const speakerNames = participants.map(p => p.trim()).filter(Boolean).join(',');
       
       // Call real backend API
       const response = await apiService.processMeeting({
         audio: audioFile,
-        speaker_names: participants.join(','), // Backend expects comma-separated string
+        speaker_names: speakerNames, // Backend expects comma-separated string
         generate_insights: true,
         generate_all_action_views: false,
       });
@@ -340,11 +422,6 @@ export const MeetingBlock = ({ block, editor }: any) => {
     }
   };
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return mins + ":" + secs.toString().padStart(2, '0');
-  };
 
   const getCurrentState = () => {
     if (block.props.status === 'processing') return 'state3_processing';
@@ -353,6 +430,13 @@ export const MeetingBlock = ({ block, editor }: any) => {
   };
 
   const currentState = getCurrentState();
+
+  // Determine when to show consent message - only at the very beginning
+  const shouldShowConsent = block.props.status === 'idle' || 
+                           (!block.props.status && currentState === 'state1_beforeRecording');
+  
+  // Determine when to show feedback
+  const shouldShowFeedback = block.props.status === 'completed';
 
   return (
     <div className="w-full bg-[#F7F6F3] border border-[#E5E5E5] my-2 rounded-3xl">
@@ -369,6 +453,16 @@ export const MeetingBlock = ({ block, editor }: any) => {
               participants={getParticipants()}
               onParticipantsChange={(newParticipants) => updateBlock({ participants: newParticipants as any })}
             />
+            
+            {/* Permission hint for first-time users */}
+            {!block.props.status && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <strong>Note:</strong> You'll be asked to allow microphone access when you start recording. 
+                  This is required for audio capture and will only be used for this meeting.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -379,6 +473,7 @@ export const MeetingBlock = ({ block, editor }: any) => {
               onTabChange={(t) => setActiveTab(t)}
               showTranscript={block.props.status === 'completed' && getTranscript().length > 0}
               isCompleted={block.props.status === 'completed'}
+              meetingData={block.props}
             />
 
             <AudioVisualization isActive={currentState === 'state2_duringRecording'} />
@@ -468,8 +563,30 @@ export const MeetingBlock = ({ block, editor }: any) => {
         )}
 
         {block.props.status === 'error' && block.props.errorMessage && (
-          <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-xs text-red-700">{block.props.errorMessage}</p>
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-red-700 font-medium mb-2">Recording Error</p>
+                <p className="text-sm text-red-600 mb-3">{block.props.errorMessage}</p>
+                
+                {/* Show upload fallback for permission/unsupported errors */}
+                {(block.props.errorMessage.includes('denied') || 
+                  block.props.errorMessage.includes('not supported') || 
+                  block.props.errorMessage.includes('microphone')) && (
+                  <div className="mt-3">
+                    <p className="text-sm text-red-600 mb-2">Alternative: Upload an audio file instead</p>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      <Upload size={16} />
+                      Upload Audio File
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
         
@@ -482,19 +599,13 @@ export const MeetingBlock = ({ block, editor }: any) => {
           id={`upload-${block.id}`}
         />
 
-        {block.props.status === 'processing' && (
-          <div className="flex items-center justify-center p-6 bg-blue-50 rounded-lg mt-6">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-4" />
-            <p className="text-sm font-medium text-blue-800">
-              Processing meeting audio...
-            </p>
-          </div>
-        )}
-
         {block.props.status === 'completed' && (
           <div className="mt-4">
-            {activeTab === 'summary' && (
-              <SummaryTab summary={block.props.summary || ""} actionItems={getActionItems()} />
+            {activeTab === 'summary' && hasSummary(block.props) && (
+              <SummaryTab 
+                summary={(block.props.summary || "") + buildActionItemsMarkdown(getActionItems())}
+                isProcessing={isMeetingProcessing(block.props)}
+              />
             )}
             {activeTab === 'notes' && (
               <NotesTab />
@@ -505,7 +616,8 @@ export const MeetingBlock = ({ block, editor }: any) => {
           </div>
         )}
 
-        {currentState !== 'state3_processing' && (
+        {/* Consent message - only show at the very beginning */}
+        {shouldShowConsent && (
           <div className="mt-6 flex items-center justify-between">
             <p className="font-normal leading-4" style={{ fontSize: '14px', color: '#9B9B9B', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.04em' }}>
               By starting, you confirm everyone being transcribed has given consent.
@@ -525,6 +637,11 @@ export const MeetingBlock = ({ block, editor }: any) => {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Feedback section - only show after processing completes */}
+        {shouldShowFeedback && (
+          <FeedbackSection />
         )}
       </div>
     </div>

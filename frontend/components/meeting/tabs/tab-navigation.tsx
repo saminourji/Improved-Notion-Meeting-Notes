@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Edit3, FileText } from "lucide-react";
+import { isMeetingProcessing, hasSummary, type MeetingLikeData } from "@/lib/utils";
 
 export type MeetingTab = "summary" | "notes" | "transcript";
 
@@ -10,12 +11,18 @@ interface TabNavigationProps {
   onTabChange: (tab: MeetingTab) => void;
   showTranscript: boolean;
   isCompleted?: boolean;
+  meetingData?: MeetingLikeData;
 }
 
-export const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange, showTranscript, isCompleted }) => {
+export const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange, showTranscript, isCompleted, meetingData }) => {
+  const processing = isMeetingProcessing(meetingData);
+  const canShowSummary = !processing && (!!meetingData ? hasSummary(meetingData) || isCompleted : isCompleted);
+
+  const baseTabs: MeetingTab[] = ["notes"];
+  const tabsWithSummary: MeetingTab[] = canShowSummary ? ([...baseTabs, "summary"] as MeetingTab[]) : baseTabs;
   const tabs: MeetingTab[] = isCompleted
-    ? (showTranscript ? ["summary", "notes", "transcript"] as MeetingTab[] : ["summary", "notes"])
-    : ["notes", "summary"];
+    ? (showTranscript ? ([...tabsWithSummary, "transcript"] as MeetingTab[]) : tabsWithSummary)
+    : tabsWithSummary;
 
   const btnClass = (tab: MeetingTab) =>
     `flex items-center gap-2 px-6 py-3 rounded-full cursor-pointer border-none ${

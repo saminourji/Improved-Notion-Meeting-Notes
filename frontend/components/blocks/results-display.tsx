@@ -14,6 +14,7 @@ import {
   Copy,
   Download
 } from 'lucide-react';
+import { formatSeconds } from "@/lib/utils";
 
 interface TranscriptSegment {
   start: number;
@@ -63,12 +64,6 @@ export const ResultsDisplay = ({
     }));
   };
 
-  // Format time display
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // transcript color helpers removed; transcript moved to TranscriptTab
 
@@ -87,7 +82,7 @@ export const ResultsDisplay = ({
         <ChevronRight className="w-4 h-4" />
         <FileText className="w-4 h-4" />
         <span className="font-medium">View Meeting Results</span>
-        <span className="text-sm text-gray-500">({participants.length} participants, {formatTime(duration)})</span>
+        <span className="text-sm text-gray-500">({participants.length} participants, {formatSeconds(duration)})</span>
       </button>
     );
   }
@@ -102,7 +97,7 @@ export const ResultsDisplay = ({
         <ChevronDown className="w-4 h-4" />
         <FileText className="w-4 h-4" />
         <span className="font-medium">Meeting Results</span>
-        <span className="text-sm text-gray-500">({participants.length} participants, {formatTime(duration)})</span>
+        <span className="text-sm text-gray-500">({participants.length} participants, {formatSeconds(duration)})</span>
       </button>
 
       {/* Meeting Metadata */}
@@ -113,7 +108,7 @@ export const ResultsDisplay = ({
             Duration
           </div>
           <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {formatTime(duration)}
+            {formatSeconds(duration)}
           </div>
         </div>
         

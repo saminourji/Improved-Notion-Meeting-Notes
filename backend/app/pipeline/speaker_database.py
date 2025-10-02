@@ -62,6 +62,12 @@ class SpeakerDatabase:
 
         logger.info("database_loaded", speakers_loaded=loaded_count, total_speakers=len(self.speakers))
 
+    def reload(self):
+        """Reload the database from files, clearing in-memory cache."""
+        logger.info("reloading_speaker_database")
+        self.speakers.clear()
+        self._load_database()
+
     def add_speaker(self, speaker_name: str, embedding: np.ndarray, metadata: Optional[Dict] = None) -> bool:
         """Add or update a speaker in the database."""
         try:

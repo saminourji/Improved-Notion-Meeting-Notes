@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 import structlog
 
 from .pipeline.processor import MeetingProcessor
+from .pipeline.processor import SpeakerDiarizer
+from .pipeline.processor import AudioProcessor
+from .pipeline.speaker_database import SpeakerDatabase
 from .core.config import get_settings
 from .core.logging import setup_logging
 
@@ -33,6 +36,7 @@ app.add_middleware(
 
 # Global processor instance
 processor: Optional[MeetingProcessor] = None
+speaker_db: Optional[SpeakerDatabase] = None
 
 @app.on_event("startup")
 async def startup_event():
@@ -92,10 +96,114 @@ def get_processor():
         logger.info("meeting_processor_initialized")
     return processor
 
+def get_speaker_db() -> SpeakerDatabase:
+    """Lazy initialization of speaker database."""
+    global speaker_db
+    if speaker_db is None:
+        speaker_db = SpeakerDatabase()
+    return speaker_db
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok", "message": "Meeting Notes API is running"}
+
+@app.get("/speakers")
+async def list_speakers_endpoint():
+    """List all registered speakers and their metadata."""
+    logger = structlog.get_logger(__name__)
+    try:
+        db = get_speaker_db()
+        names = db.list_speakers()
+        speakers = []
+        for name in names:
+            data = db.get_speaker(name) or {}
+            speakers.append({
+                "id": name,
+                "name": name,
+                "metadata": data.get("metadata", {})
+            })
+        return JSONResponse(content={"speakers": speakers})
+    except Exception as e:
+        logger.exception("list_speakers_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to list speakers: {str(e)}")
+
+@app.get("/speakers/{name}")
+async def get_speaker_endpoint(name: str):
+    """Get details for a specific speaker."""
+    db = get_speaker_db()
+    data = db.get_speaker(name)
+    if not data:
+        raise HTTPException(status_code=404, detail="Speaker not found")
+    return JSONResponse(content={"name": name, "metadata": data.get("metadata", {})})
+
+@app.post("/speakers")
+async def add_speaker_endpoint(
+    name: str = Form(...),
+    voice_sample: UploadFile = File(...)
+):
+    """Register a speaker with a voice sample. Extracts embedding and persists to DB."""
+    logger = structlog.get_logger(__name__)
+    try:
+        # Normalize speaker name
+        clean_name = name.strip()
+        if not clean_name:
+            raise HTTPException(status_code=400, detail="Speaker name cannot be empty")
+            
+        # Ensure we can embed
+        proc = get_processor()
+        db = get_speaker_db()
+
+        # Save uploaded sample to temp
+        request_id = str(uuid.uuid4())
+        temp_dir = Path("data/temp") / f"speaker_{request_id}"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            raw_path = temp_dir / voice_sample.filename
+            with open(raw_path, "wb") as f:
+                content = await voice_sample.read()
+                f.write(content)
+
+            audio_processor = proc.audio_processor if hasattr(proc, "audio_processor") else AudioProcessor()
+            diarizer = proc.diarizer if hasattr(proc, "diarizer") else SpeakerDiarizer(os.getenv("HUGGINGFACE_TOKEN"))
+
+            wav_path = audio_processor.convert_to_wav(raw_path)
+            embedding = diarizer.extract_speaker_embedding(wav_path)
+
+            success = db.add_speaker(clean_name, embedding, {
+                "source_audio": str(raw_path),
+                "processed_audio": str(wav_path),
+                "added_via": "api"
+            })
+
+            if not success:
+                raise RuntimeError("Failed to persist speaker")
+
+            return JSONResponse(content={"id": clean_name, "name": clean_name, "metadata": db.get_speaker(clean_name).get("metadata", {})})
+        finally:
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+    except Exception as e:
+        logger.exception("add_speaker_failed", speaker=clean_name if 'clean_name' in locals() else None, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to add speaker: {str(e)}")
+
+@app.delete("/speakers/{name}")
+async def delete_speaker_endpoint(name: str):
+    """Delete a speaker from the database."""
+    logger = structlog.get_logger(__name__)
+    try:
+        db = get_speaker_db()
+        if name not in db.list_speakers():
+            raise HTTPException(status_code=404, detail="Speaker not found")
+        if not db.remove_speaker(name):
+            raise HTTPException(status_code=500, detail="Failed to remove speaker")
+        return JSONResponse(content={"success": True})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("delete_speaker_failed", speaker=name, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to delete speaker: {str(e)}")
 
 @app.post("/process")
 async def process_meeting_endpoint(
@@ -133,22 +241,27 @@ async def process_meeting_endpoint(
 
         # Handle voice samples
         voice_samples = {}
-        speaker_list = speaker_names.split(",") if speaker_names else []
+        speaker_list = [name.strip() for name in speaker_names.split(",")] if speaker_names else []
+        speaker_list = [name for name in speaker_list if name]  # Remove empty names
 
         voice_files = [voice_sample_1, voice_sample_2, voice_sample_3]
         for i, (voice_file, speaker_name) in enumerate(zip(voice_files, speaker_list)):
-            if voice_file and speaker_name.strip():
-                voice_path = temp_dir / f"voice_{speaker_name.strip()}_{voice_file.filename}"
+            if voice_file and speaker_name:
+                voice_path = temp_dir / f"voice_{speaker_name}_{voice_file.filename}"
                 with open(voice_path, "wb") as f:
                     voice_content = await voice_file.read()
                     f.write(voice_content)
 
-                voice_samples[speaker_name.strip()] = voice_path
+                voice_samples[speaker_name] = voice_path
                 logger.info("voice_sample_uploaded",
-                           speaker=speaker_name.strip(),
+                           speaker=speaker_name,
                            filename=voice_file.filename,
                            size_bytes=len(voice_content))
 
+        # Reload speaker database to ensure we have latest registered speakers
+        proc.speaker_db.reload()
+        logger.info("speakers_loaded_for_matching", count=len(proc.speaker_db.list_speakers()), names=proc.speaker_db.list_speakers())
+        
         # Process the meeting
         logger.info("starting_meeting_processing",
                    request_id=request_id,

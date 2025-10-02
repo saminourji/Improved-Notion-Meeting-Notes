@@ -271,6 +271,8 @@ export default function SpeakerSetupPage() {
   const [newSpeakerName, setNewSpeakerName] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedSpeakers, setExpandedSpeakers] = useState<Set<string>>(new Set());
+  const [uploadingSpeakers, setUploadingSpeakers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadSpeakers();
@@ -280,6 +282,9 @@ export default function SpeakerSetupPage() {
     try {
       const speakersData = await apiService.getSpeakers();
       setSpeakers(speakersData);
+      // Set expanded state: false for registered speakers, true for local ones
+      const registeredNames = new Set(speakersData.map(s => s.name));
+      setExpandedSpeakers(new Set());
     } catch (error) {
       console.error('Failed to load speakers:', error);
       toast.error('Failed to load speakers');
@@ -294,16 +299,13 @@ export default function SpeakerSetupPage() {
 
     setIsLoading(true);
     try {
-      const newSpeaker = {
-        id: `speaker-${Date.now()}`,
-        name: newSpeakerName.trim(),
-        sample_type: 'recorded' as const
-      };
-      await apiService.saveSpeaker(newSpeaker);
+      // Add a local placeholder card; persistence happens on first sample upload
+      const newSpeaker = { id: newSpeakerName.trim(), name: newSpeakerName.trim() } as SpeakerConfig;
       setSpeakers([...speakers, newSpeaker]);
+      setExpandedSpeakers(prev => new Set([...prev, newSpeaker.name]));
       setNewSpeakerName('');
       setShowAddForm(false);
-      toast.success(`Speaker "${newSpeaker.name}" created successfully`);
+      toast.success(`Speaker "${newSpeaker.name}" added. Upload a sample to register.`);
     } catch (error) {
       console.error('Failed to create speaker:', error);
       toast.error('Failed to create speaker');
@@ -312,10 +314,10 @@ export default function SpeakerSetupPage() {
     }
   };
 
-  const handleDeleteSpeaker = async (speakerId: string) => {
+  const handleDeleteSpeaker = async (speakerName: string) => {
     try {
-      await apiService.deleteSpeaker(speakerId);
-      setSpeakers(speakers.filter(s => s.id !== speakerId));
+      await apiService.deleteSpeaker(speakerName);
+      setSpeakers(speakers.filter(s => s.name !== speakerName));
       toast.success('Speaker deleted successfully');
     } catch (error) {
       console.error('Failed to delete speaker:', error);
@@ -323,21 +325,48 @@ export default function SpeakerSetupPage() {
     }
   };
 
-  const handleVoiceSampleAdded = (speakerId: string, audioBlob: Blob) => {
-    setSpeakers(speakers.map(speaker => 
-      speaker.id === speakerId 
-        ? { ...speaker, voice_sample: new Blob() }
-        : speaker
-    ));
-    toast.success('Voice sample added successfully');
+  const handleVoiceSampleAdded = async (speakerName: string, audioBlob: Blob) => {
+    setUploadingSpeakers(prev => new Set([...prev, speakerName]));
+    try {
+      const saved = await apiService.saveSpeaker(speakerName, audioBlob);
+      if (!saved) throw new Error('Upload failed');
+      await loadSpeakers();
+      setExpandedSpeakers(prev => {
+        const next = new Set(prev);
+        next.delete(speakerName);
+        return next;
+      });
+      toast.success('Voice sample added successfully');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to add voice sample');
+    } finally {
+      setUploadingSpeakers(prev => {
+        const next = new Set(prev);
+        next.delete(speakerName);
+        return next;
+      });
+    }
   };
 
-  const handleFileUpload = (speakerId: string, file: File) => {
+  const toggleSpeakerExpansion = (speakerName: string) => {
+    setExpandedSpeakers(prev => {
+      const next = new Set(prev);
+      if (next.has(speakerName)) {
+        next.delete(speakerName);
+      } else {
+        next.add(speakerName);
+      }
+      return next;
+    });
+  };
+
+  const handleFileUpload = (speakerName: string, file: File) => {
     // Convert file to blob and handle like recorded audio
     const reader = new FileReader();
     reader.onload = () => {
       const audioBlob = new Blob([reader.result as ArrayBuffer], { type: file.type });
-      handleVoiceSampleAdded(speakerId, audioBlob);
+      handleVoiceSampleAdded(speakerName, audioBlob);
     };
     reader.readAsArrayBuffer(file);
   };
@@ -419,7 +448,7 @@ export default function SpeakerSetupPage() {
         <div className="space-y-6">
           {speakers.map((speaker) => (
             <div
-              key={speaker.id}
+              key={speaker.name}
               className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800"
             >
               <div className="flex items-center justify-between mb-4">
@@ -432,12 +461,17 @@ export default function SpeakerSetupPage() {
                       {speaker.name}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {speaker.voice_sample ? '1' : '0'} voice sample{speaker.voice_sample ? '' : 's'}
+                      {speaker.metadata?.created_at ? 'Registered' : 'Not registered'}
                     </p>
+                    {speaker.metadata?.created_at && (
+                      <p className="text-xs text-gray-500">
+                        Added {new Date(speaker.metadata.created_at).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <button
-                  onClick={() => handleDeleteSpeaker(speaker.id)}
+                  onClick={() => handleDeleteSpeaker(speaker.name)}
                   className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -450,7 +484,7 @@ export default function SpeakerSetupPage() {
                     Record Voice Sample
                   </h4>
                   <AudioRecorder
-                    onRecordingComplete={(audioBlob) => handleVoiceSampleAdded(speaker.id, audioBlob)}
+                    onRecordingComplete={(audioBlob) => handleVoiceSampleAdded(speaker.name, audioBlob)}
                     maxDuration={60}
                   />
                 </div>
@@ -460,7 +494,7 @@ export default function SpeakerSetupPage() {
                     Upload Audio File
                   </h4>
                   <FileUploadArea
-                    onFileUpload={(file) => handleFileUpload(speaker.id, file)}
+                    onFileUpload={(file) => handleFileUpload(speaker.name, file)}
                   />
                 </div>
               </div>

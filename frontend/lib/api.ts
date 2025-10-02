@@ -3,8 +3,9 @@
 export interface SpeakerConfig {
   id: string;
   name: string;
-  sample_type: 'recorded' | 'uploaded';
-  voice_sample?: File | Blob;
+  voice_sample?: File;
+  sample_type?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface MeetingData {
@@ -66,7 +67,11 @@ class APIService {
     const formData = new FormData();
     
     // Backend expects 'meeting_audio' not 'audio'
-    formData.append('meeting_audio', request.audio);
+    // Ensure we have a File with proper filename
+    const audioFile = request.audio instanceof File 
+      ? request.audio 
+      : new File([request.audio], 'recording.webm', { type: 'audio/webm' });
+    formData.append('meeting_audio', audioFile, audioFile.name);
     
     // Add speaker names
     if (request.speaker_names) {
@@ -161,34 +166,26 @@ class APIService {
   }
 
   async getSpeakers(): Promise<SpeakerConfig[]> {
-    const stored = localStorage.getItem('speakers');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return [];
-      }
-    }
-    return [];
+    const res = await fetch(`${this.baseURL}/speakers`, { method: 'GET' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const speakers = (data?.speakers || []) as Array<{ id: string; name: string; metadata?: Record<string, any> }>;
+    return speakers.map(s => ({ id: s.id, name: s.name, metadata: s.metadata }));
   }
 
-  async saveSpeaker(speaker: SpeakerConfig): Promise<void> {
-    const speakers = await this.getSpeakers();
-    const existingIndex = speakers.findIndex(s => s.id === speaker.id);
-    
-    if (existingIndex >= 0) {
-      speakers[existingIndex] = speaker;
-    } else {
-      speakers.push(speaker);
-    }
-    
-    localStorage.setItem('speakers', JSON.stringify(speakers));
+  async saveSpeaker(name: string, voiceSample: File | Blob): Promise<SpeakerConfig | null> {
+    const form = new FormData();
+    form.append('name', name);
+    form.append('voice_sample', voiceSample);
+    const res = await fetch(`${this.baseURL}/speakers`, { method: 'POST', body: form });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { id: data.id || data.name, name: data.name, metadata: data.metadata };
   }
 
-  async deleteSpeaker(id: string): Promise<void> {
-    const speakers = await this.getSpeakers();
-    const filtered = speakers.filter(s => s.id !== id);
-    localStorage.setItem('speakers', JSON.stringify(filtered));
+  async deleteSpeaker(name: string): Promise<boolean> {
+    const res = await fetch(`${this.baseURL}/speakers/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    return res.ok;
   }
 
   async healthCheck(): Promise<boolean> {

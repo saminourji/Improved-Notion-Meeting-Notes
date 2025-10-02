@@ -41,3 +41,4 @@ frontend/.env*.local
 
 # Backup directories
 frontend-backup/
+node_modules/*

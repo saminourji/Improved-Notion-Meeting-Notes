@@ -108,7 +108,8 @@ FORMATTING REQUIREMENTS:
 - Be professional, concise, and actionable
 - Focus on concrete outcomes and decisions rather than conversational details
 - Create 1-3 topical sections based on the main themes discussed (beyond standard sections)
-- Organize action items as checkboxes with clear assignee and deadline information"""
+- Organize action items as checkboxes with clear assignee and deadline information (e.g. - [ ] @<person_name> do description by <deadline>)
+- When referring to a participant or speaker, prefix their name with @ (e.g., @Sami, @Aadil). Use exact names if available from the transcript."""
 
         try:
             # Use chat completions API

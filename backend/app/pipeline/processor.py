@@ -360,10 +360,34 @@ class Transcriber:
             self.model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
 
     def transcribe_segments(self, audio_path: Path, segments: List[Dict]) -> List[Dict]:
-        """Transcribe each diarized segment."""
+        """Transcribe each diarized segment with improved word selection."""
         self._load_model()
 
         logger.info("starting_transcription", audio_path=str(audio_path), num_segments=len(segments))
+
+        # Transcribe the entire audio once with word timestamps
+        logger.info("transcribing_full_audio_for_segment_assignment")
+        transcription_result, _ = self.model.transcribe(
+            str(audio_path),
+            initial_prompt=None,
+            word_timestamps=True
+        )
+        
+        # Safety assertion: ensure we're not in a loop calling model.transcribe
+        assert not hasattr(self, '_transcribe_call_count'), "Model transcribe should only be called once per segments processing"
+
+        # Extract all words with timestamps for efficient lookup
+        all_words = []
+        for transcript_segment in transcription_result:
+            for word in transcript_segment.words:
+                all_words.append({
+                    'text': word.word,
+                    'start': word.start,
+                    'end': word.end,
+                    'midpoint': (word.start + word.end) / 2
+                })
+
+        logger.info("full_transcription_complete", total_words=len(all_words))
 
         transcribed_segments = []
 
@@ -371,33 +395,64 @@ class Transcriber:
             start_time = segment['start']
             end_time = segment['end']
 
-            # Transcribe the segment
-            transcription_result, _ = self.model.transcribe(
-                str(audio_path),
-                initial_prompt=None,
-                word_timestamps=False
-            )
+            # Extract words that belong to this segment using improved logic
+            segment_words = []
+            
+            for word in all_words:
+                # Calculate word overlap with segment
+                word_overlap = self._calculate_overlap(
+                    word['start'], word['end'], start_time, end_time
+                )
+                
+                # Include word if midpoint is within segment or has significant overlap
+                if (start_time <= word['midpoint'] <= end_time or 
+                    word_overlap >= 0.05):  # Very low threshold for maximum coverage
+                    segment_words.append(word['text'])
 
-            # Extract text for this time segment
-            segment_text = ""
-            for transcript_segment in transcription_result:
-                if (transcript_segment.start >= start_time and
-                    transcript_segment.end <= end_time):
-                    segment_text += transcript_segment.text + " "
-
-            # If no exact match, use the whole transcription (simplified approach)
-            if not segment_text.strip():
-                full_transcription = " ".join([s.text for s in transcription_result])
-                segment_text = full_transcription
+            segment_text = " ".join(segment_words).strip()
+            
+            # If still empty after word selection, try expanding the window significantly
+            if not segment_text:
+                expanded_start = max(0, start_time - 2.0)  # Much larger window
+                expanded_end = end_time + 2.0
+                
+                for word in all_words:
+                    if expanded_start <= word['midpoint'] <= expanded_end:
+                        segment_words.append(word['text'])
+                
+                segment_text = " ".join(segment_words).strip()
+                
+                # Final fallback: if still empty, include any word that overlaps at all
+                if not segment_text:
+                    for word in all_words:
+                        # Any overlap at all
+                        if not (word['end'] <= start_time or word['start'] >= end_time):
+                            segment_words.append(word['text'])
+                    segment_text = " ".join(segment_words).strip()
 
             transcribed_segments.append({
                 **segment,
-                'text': segment_text.strip(),
+                'text': segment_text,
                 'confidence': 0.8  # Placeholder confidence
             })
 
-        logger.info("transcription_complete", segments_transcribed=len(transcribed_segments))
+        logger.info("transcription_complete", 
+                   segments_transcribed=len(transcribed_segments),
+                   segments_with_text=len([s for s in transcribed_segments if s['text'].strip()]))
         return transcribed_segments
+
+    def _calculate_overlap(self, start1: float, end1: float, start2: float, end2: float) -> float:
+        """Calculate intersection over union (IoU) of two time intervals."""
+        intersection_start = max(start1, start2)
+        intersection_end = min(end1, end2)
+        
+        if intersection_start >= intersection_end:
+            return 0.0
+        
+        intersection = intersection_end - intersection_start
+        union = (end1 - start1) + (end2 - start2) - intersection
+        
+        return intersection / union if union > 0 else 0.0
 
     def transcribe_full_meeting(self, audio_path: Path, matched_segments: List[Dict]) -> Dict:
         """Transcribe entire meeting and create speaker-annotated transcript."""
