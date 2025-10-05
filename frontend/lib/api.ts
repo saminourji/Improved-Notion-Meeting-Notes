@@ -31,10 +31,6 @@ export interface MeetingData {
 
 export interface ProcessMeetingRequest {
   audio: File;
-  speaker_names?: string;
-  voice_sample_1?: File;
-  voice_sample_2?: File;
-  voice_sample_3?: File;
   generate_insights?: boolean;
   generate_all_action_views?: boolean;
 }
@@ -50,6 +46,7 @@ export interface ProcessMeetingResponse {
       text: string;
     }>;
   };
+  speakers?: Array<{ name: string; matched: boolean }>;
   summary: string;
   action_items: any[];
   error?: string;
@@ -73,15 +70,6 @@ class APIService {
       : new File([request.audio], 'recording.webm', { type: 'audio/webm' });
     formData.append('meeting_audio', audioFile, audioFile.name);
     
-    // Add speaker names
-    if (request.speaker_names) {
-      formData.append('speaker_names', request.speaker_names);
-    }
-    
-    // Add voice samples
-    if (request.voice_sample_1) formData.append('voice_sample_1', request.voice_sample_1);
-    if (request.voice_sample_2) formData.append('voice_sample_2', request.voice_sample_2);
-    if (request.voice_sample_3) formData.append('voice_sample_3', request.voice_sample_3);
     
     // Add options
     formData.append('generate_insights', String(request.generate_insights ?? true));
@@ -111,6 +99,7 @@ class APIService {
         success: true,
         meeting_id: data.meeting_id || Date.now().toString(),
         transcription: data.transcription || { segments: [] },
+        speakers: data.speakers || [],
         summary: data.summary || '',
         action_items: data.action_items_by_speaker || data.action_items || [],
       };
@@ -120,6 +109,7 @@ class APIService {
         success: false,
         meeting_id: '',
         transcription: { segments: [] },
+        speakers: [],
         summary: '',
         action_items: [],
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -184,8 +174,17 @@ class APIService {
   }
 
   async deleteSpeaker(name: string): Promise<boolean> {
-    const res = await fetch(`${this.baseURL}/speakers/${encodeURIComponent(name)}`, { method: 'DELETE' });
-    return res.ok;
+    try {
+      const res = await fetch(`${this.baseURL}/speakers/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`Failed to delete speaker ${name}: ${res.status} ${errorText}`);
+      }
+      return res.ok;
+    } catch (error) {
+      console.error(`Error deleting speaker ${name}:`, error);
+      return false;
+    }
   }
 
   async healthCheck(): Promise<boolean> {

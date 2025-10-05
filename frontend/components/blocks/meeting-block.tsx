@@ -23,9 +23,10 @@ import {
   Sliders,
   Wand2,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  UserCheck,
+  UserX
 } from 'lucide-react';
-import { ParticipantInput } from './participant-input';
 import { ResultsDisplay } from './results-display';
 import dynamic from 'next/dynamic';
 import { TabNavigation, MeetingTab } from '@/components/meeting/tabs/tab-navigation';
@@ -112,6 +113,57 @@ const ProcessingIndicator = () => {
   );
 };
 
+// Speaker Display Component
+const SpeakerDisplaySection = ({ speakers }: { speakers: Array<{ name: string; matched: boolean }> }) => {
+  if (!speakers || speakers.length === 0) return null;
+
+  const matchedSpeakers = speakers.filter(s => s.matched);
+  const unmatchedSpeakers = speakers.filter(s => !s.matched);
+
+  return (
+    <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+      <div className="flex items-center gap-2 mb-3">
+        <Users size={16} className="text-gray-600" />
+        <h3 className="text-sm font-medium text-gray-900">Detected Speakers</h3>
+      </div>
+      
+      <div className="space-y-2">
+        {/* Matched speakers */}
+        {matchedSpeakers.map((speaker, index) => (
+          <div key={`matched-${index}`} className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+              <UserCheck size={12} className="text-green-600" />
+            </div>
+            <span className="text-sm text-gray-900 font-medium">{speaker.name}</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              Registered
+            </span>
+          </div>
+        ))}
+        
+        {/* Unmatched speakers */}
+        {unmatchedSpeakers.map((speaker, index) => (
+          <div key={`unmatched-${index}`} className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+              <UserX size={12} className="text-gray-600" />
+            </div>
+            <span className="text-sm text-gray-700">{speaker.name}</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+              Unknown
+            </span>
+          </div>
+        ))}
+      </div>
+      
+      {unmatchedSpeakers.length > 0 && (
+        <p className="mt-3 text-xs text-gray-500">
+          To register unknown speakers, go to <strong>Speaker Setup</strong> and add their voice samples.
+        </p>
+      )}
+    </div>
+  );
+};
+
 // Feedback Component
 const FeedbackSection = () => {
   const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
@@ -184,7 +236,7 @@ export const MeetingBlock = ({ block, editor }: any) => {
     });
   };
 
-  const getParticipants = (): string[] => {
+  const getParticipants = (): Array<{ name: string; matched: boolean }> => {
     try {
       return block.props.participants ? JSON.parse(block.props.participants) : [];
     } catch {
@@ -364,14 +416,9 @@ export const MeetingBlock = ({ block, editor }: any) => {
         audioFile = new File([audioInput], fileName, { type: 'audio/webm' });
       }
       
-      // Get participants to pass as speaker names
-      const participants = getParticipants();
-      const speakerNames = participants.map(p => p.trim()).filter(Boolean).join(',');
-      
       // Call real backend API
       const response = await apiService.processMeeting({
         audio: audioFile,
-        speaker_names: speakerNames, // Backend expects comma-separated string
         generate_insights: true,
         generate_all_action_views: false,
       });
@@ -382,7 +429,7 @@ export const MeetingBlock = ({ block, editor }: any) => {
           transcript: response.transcription.segments as any,
           summary: response.summary,
           actionItems: response.action_items as any,
-          participants: participants as any,
+          participants: response.speakers as any,
           duration: recordingTime > 0 ? recordingTime : undefined
         });
       } else {
@@ -449,11 +496,6 @@ export const MeetingBlock = ({ block, editor }: any) => {
       <div className="mt-1 bg-white border border-[#E5E5E5] rounded-t-2xl rounded-b-3xl p-5 -mx-px">
         {currentState === 'state1_beforeRecording' && (
           <div className="mb-5">
-            <ParticipantInput 
-              participants={getParticipants()}
-              onParticipantsChange={(newParticipants) => updateBlock({ participants: newParticipants as any })}
-            />
-            
             {/* Permission hint for first-time users */}
             {!block.props.status && (
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -601,6 +643,9 @@ export const MeetingBlock = ({ block, editor }: any) => {
 
         {block.props.status === 'completed' && (
           <div className="mt-4">
+            {/* Speaker Display Section */}
+            <SpeakerDisplaySection speakers={getParticipants()} />
+            
             {activeTab === 'summary' && hasSummary(block.props) && (
               <SummaryTab 
                 summary={(block.props.summary || "") + buildActionItemsMarkdown(getActionItems())}

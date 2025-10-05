@@ -287,6 +287,18 @@ async def process_meeting_endpoint(
         import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
 
+        # Extract speaker information for frontend display
+        detected_speakers = []
+        known_speakers = set(proc.speaker_db.list_speakers())
+        
+        for segment in result['segments']:
+            speaker_name = segment.get('matched_speaker', 'Unknown')
+            if speaker_name not in [s['name'] for s in detected_speakers]:
+                detected_speakers.append({
+                    "name": speaker_name,
+                    "matched": speaker_name in known_speakers
+                })
+        
         # Flatten response structure to match frontend expectations
         response_data = {
             "success": True,
@@ -294,6 +306,7 @@ async def process_meeting_endpoint(
             "transcription": {
                 "segments": result['segments']
             },
+            "speakers": detected_speakers,
             "metadata": {
                 "segments": len(result['segments']),
                 "speakers": result['processing_metadata']['speakers_identified'],
