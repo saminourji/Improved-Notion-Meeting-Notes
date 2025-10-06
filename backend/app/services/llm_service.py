@@ -73,6 +73,8 @@ Please analyze the following meeting transcript and provide a comprehensive summ
 
 {speaker_annotated_transcript}{user_notes_section}
 
+IMPORTANT: Do NOT include any form of action items in the summary since those will be generated elsewhere. Only summarize the discussion, key points, and outcomes.
+
 Generate a structured summary with the following sections in markdown format:
 
 ## Executive Summary
@@ -92,10 +94,6 @@ Generate a structured summary with the following sections in markdown format:
 ## [Topic Name 3]
 (Detailed discussion of major topic - maximum 3 topical sections)
 
-## Action Items
-- [ ] Task description (Assigned to: Speaker Name, Deadline: if specified)
-- [ ] Task description (Assigned to: Speaker Name, Deadline: if specified)
-
 ## Next Steps
 - Next meeting or follow-up item
 - Deadlines and important dates
@@ -103,12 +101,10 @@ Generate a structured summary with the following sections in markdown format:
 FORMATTING REQUIREMENTS:
 - Use markdown format with proper headers (## for main sections, ### for subsections if needed)
 - Use bullet points (-) for lists
-- Use checkboxes (- [ ]) for action items
 - DO NOT use emojis unless they are directly relevant to the meeting content
 - Be professional, concise, and actionable
 - Focus on concrete outcomes and decisions rather than conversational details
 - Create 1-3 topical sections based on the main themes discussed (beyond standard sections)
-- Organize action items as checkboxes with clear assignee and deadline information (e.g. - [ ] @<person_name> do description by <deadline>)
 - When referring to a participant or speaker, prefix their name with @ (e.g., @Sami, @Aadil). Use exact names if available from the transcript."""
 
         try:
@@ -204,40 +200,32 @@ Analyze the following meeting transcript and extract all action items:
 For each action item, determine:
 1. What specific task needs to be done
 2. Who is responsible (if mentioned or implied)
-3. Any mentioned deadlines or timeframes
-4. Priority level (high/medium/low based on context)
-5. Clear, actionable description{focus_instruction}
+3. Any mentioned deadlines or timeframes (embed directly in task description if explicitly mentioned)
+4. Clear, actionable description{focus_instruction}
 
 FORMATTING REQUIREMENTS:
 - DO NOT use emojis unless they are directly relevant to the meeting content
 - Use professional, business-appropriate language
 - Be specific and actionable in task descriptions
 - Focus on concrete outcomes and commitments
+- Embed deadline/priority information directly in the task string if explicitly mentioned
 
 Return your response in JSON format with this structure:
 {{
-  "speaker_name": [
-    {{
-      "task": "Description of what needs to be done",
-      "deadline": "When it needs to be done (or 'Not specified')",
-      "priority": "high|medium|low",
-      "context": "Brief context from the meeting",
-      "checkbox_format": "- [ ] Task description (Assigned to: Speaker Name, Deadline: if specified)"{comma_separator}
-      {relevance_field}
-    }}
-  ],
-  "unassigned": [
-    {{
-      "task": "Tasks where no clear owner was identified",
-      "deadline": "When it needs to be done (or 'Not specified')",
-      "priority": "high|medium|low",
-      "context": "Brief context from the meeting",
-      "checkbox_format": "- [ ] Task description (Unassigned, Deadline: if specified)"
-    }}
-  ]
+  "Sami": ["Task description with deadline if mentioned"],
+  "Aadil": ["Another task description"],
+  "Everyone": ["Optional: tasks for whole group"],
+  "Other": ["Optional: unassigned tasks"]
 }}
 
-Only include actual action items and commitments, not general discussion points. If someone volunteers for something or is asked to do something, assign it to them. Include a 'checkbox_format' field with the markdown checkbox format for each item."""
+IMPORTANT SCHEMA NOTES:
+- Use exact participant names as keys (e.g., "Sami", "Aadil", etc.)
+- Include "Everyone" key only if there are group-wide tasks that apply to all participants
+- Include "Other" key only if there are unassigned tasks where no clear owner was identified
+- Each task should be a simple string - embed deadline/priority information directly in the task description if explicitly mentioned
+- Do not use strict schema for deadlines/priorities - only include if explicitly mentioned in the meeting
+
+Only include actual action items and commitments, not general discussion points. If someone volunteers for something or is asked to do something, assign it to them."""
 
         try:
             # Use chat completions API
@@ -269,12 +257,7 @@ Only include actual action items and commitments, not general discussion points.
                               response_text=action_items_text[:200])
                 # Fallback: return a simplified structure
                 action_items = {
-                    "unassigned": [{
-                        "task": "Failed to parse action items - please review meeting manually",
-                        "deadline": "Not specified",
-                        "priority": "medium",
-                        "context": "JSON parsing error occurred"
-                    }]
+                    "Other": ["Failed to parse action items - please review meeting manually"]
                 }
 
             # Add metadata

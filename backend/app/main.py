@@ -291,6 +291,8 @@ async def process_meeting_endpoint(
         detected_speakers = []
         known_speakers = set(proc.speaker_db.list_speakers())
         
+        # Clean segments to ensure JSON serializable values
+        clean_segments = []
         for segment in result['segments']:
             speaker_name = segment.get('matched_speaker', 'Unknown')
             if speaker_name not in [s['name'] for s in detected_speakers]:
@@ -298,17 +300,28 @@ async def process_meeting_endpoint(
                     "name": speaker_name,
                     "matched": speaker_name in known_speakers
                 })
+            
+            # Convert numpy types to native Python types for JSON serialization
+            clean_segment = {}
+            for key, value in segment.items():
+                if hasattr(value, 'item'):  # numpy scalar
+                    clean_segment[key] = value.item()
+                elif isinstance(value, (list, tuple)):
+                    clean_segment[key] = [v.item() if hasattr(v, 'item') else v for v in value]
+                else:
+                    clean_segment[key] = value
+            clean_segments.append(clean_segment)
         
         # Flatten response structure to match frontend expectations
         response_data = {
             "success": True,
             "request_id": request_id,
             "transcription": {
-                "segments": result['segments']
+                "segments": clean_segments
             },
             "speakers": detected_speakers,
             "metadata": {
-                "segments": len(result['segments']),
+                "segments": len(clean_segments),
                 "speakers": result['processing_metadata']['speakers_identified'],
                 "duration": result['processing_metadata']['total_duration']
             }

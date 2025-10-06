@@ -629,39 +629,8 @@ class MeetingProcessor:
         # Perform diarization with AUTO speaker detection (unless specified)
         diarization_result = self.diarizer.diarize(wav_path, num_speakers=num_speakers)
 
-        # Extract embeddings for each unique speaker segment
-        segment_embeddings = []
-        unique_speaker_embeddings = {}  # Cache embeddings per diarized speaker
-
-        for segment in diarization_result['segments']:
-            diarized_speaker = segment['speaker']
-
-            # Only extract embedding once per diarized speaker
-            if diarized_speaker not in unique_speaker_embeddings:
-                try:
-                    # Extract embedding from specific time segment
-                    embedding = self.diarizer.extract_speaker_embedding(
-                        wav_path,
-                        start_time=segment['start'],
-                        end_time=segment['end']
-                    )
-                    unique_speaker_embeddings[diarized_speaker] = embedding
-                except Exception as e:
-                    logger.error("segment_embedding_failed",
-                                 speaker=diarized_speaker,
-                                 segment=f"{segment['start']:.1f}-{segment['end']:.1f}",
-                                 error=str(e))
-                    raise
-
-            # Use the cached embedding for this segment
-            segment_embeddings.append(unique_speaker_embeddings[diarized_speaker])
-
-        logger.info("extracted_segment_embeddings",
-                   total_segments=len(segment_embeddings),
-                   unique_diarized_speakers=len(unique_speaker_embeddings))
-
-        # Match speakers against database
-        matching_result = self.matcher.match_segments(diarization_result, segment_embeddings)
+        # Extract averaged embeddings per diarized speaker and match (same as tests)
+        matching_result = self.matcher.extract_and_match_speakers(wav_path, diarization_result, self.diarizer)
 
         # Transcribe segments
         transcribed_segments = self.transcriber.transcribe_segments(wav_path, matching_result['segments'])
@@ -675,6 +644,10 @@ class MeetingProcessor:
             'processed_audio_path': str(wav_path),
             'segments': transcribed_segments,
             'speaker_mapping': matching_result.get('speaker_mapping', {}),
+            'matching_debug': {
+                'segment_details': matching_result.get('segment_details', {}),
+                'unique_speaker_embeddings': {k: list(v.shape) if hasattr(v, 'shape') else 'n/a' for k, v in matching_result.get('unique_speaker_embeddings', {}).items()}
+            },
             'diarization_metadata': {
                 'unique_speakers': diarization_result.get('unique_speakers', []),
                 'total_speakers': diarization_result.get('total_speakers', 0),
