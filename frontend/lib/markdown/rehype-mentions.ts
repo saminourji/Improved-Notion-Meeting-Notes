@@ -11,8 +11,8 @@ export function rehypeMentions() {
       
       const text = node.value;
       
-      // Check if text contains speaker mentions
-      const mentionRegex = /(\([^)]+\)|\[[^\]]+\])/g;
+      // Check if text contains @mentions
+      const mentionRegex = /\B@([A-Za-z][A-Za-z0-9_.-]{0,63})\b/g;
       if (!mentionRegex.test(text)) return;
       
       // Split text and create new nodes
@@ -20,27 +20,15 @@ export function rehypeMentions() {
       const newNodes: any[] = [];
       
       parts.forEach((part, partIndex) => {
-        if (part.match(/^\([^)]+\)$/)) {
-          // Speaker mention in parentheses
-          const speakerName = part.slice(1, -1);
+        if (part.match(/^@[A-Za-z][A-Za-z0-9_.-]{0,63}$/)) {
+          // @mention
           newNodes.push({
             type: 'element',
             tagName: 'span',
             properties: {
-              className: 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+              style: 'color: #9B9B9B; font-weight: 600;'
             },
-            children: [{ type: 'text', value: speakerName }]
-          });
-        } else if (part.match(/^\[[^\]]+\]$/)) {
-          // Speaker mention in brackets
-          const speakerName = part.slice(1, -1);
-          newNodes.push({
-            type: 'element',
-            tagName: 'span',
-            properties: {
-              className: 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-            },
-            children: [{ type: 'text', value: speakerName }]
+            children: [{ type: 'text', value: part }] // Keep @ symbol in display
           });
         } else if (part.length > 0) {
           // Regular text

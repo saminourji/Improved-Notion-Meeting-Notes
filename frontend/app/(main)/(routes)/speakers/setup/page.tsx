@@ -344,17 +344,7 @@ const DropdownMenu = ({
     };
   }, [isOpen, onClose]);
 
-  console.log('🎯 DropdownMenu render:', { isOpen, position });
-  
-  if (!isOpen) {
-    console.log('❌ Menu not open, returning null');
-    return null;
-  }
-  
-  if (!position.top || !position.left) {
-    console.log('❌ Invalid position:', position, 'returning null');
-    return null;
-  }
+  if (!isOpen || !position.top || !position.left) return null;
 
   const handleUploadClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -363,8 +353,6 @@ const DropdownMenu = ({
     onClose();
   };
 
-  console.log('🎨 Rendering dropdown with position:', position);
-  
   return (
     <div
       ref={menuRef}
@@ -570,13 +558,9 @@ export default function SpeakerSetupPage() {
 
   const toggleMenu = (speakerName: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    console.log('🔍 Toggle menu clicked for:', speakerName);
     
     const buttonRef = menuButtonRefs.current[speakerName];
-    if (!buttonRef) {
-      console.error('❌ Button ref not found for:', speakerName);
-      return;
-    }
+    if (!buttonRef) return;
     
     const rect = buttonRef.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
@@ -598,26 +582,18 @@ export default function SpeakerSetupPage() {
     
     const position = { top, left };
     
-    console.log('📍 Menu position calculation:');
-    console.log('  - Button rect:', rect);
-    console.log('  - Viewport:', { width: viewportWidth, height: viewportHeight });
-    console.log('  - Final position:', position);
-    
     // Update position first
     setMenuPositions(prev => ({ ...prev, [speakerName]: position }));
     
     setOpenMenus(prev => {
       const next = new Set(prev);
       if (next.has(speakerName)) {
-        console.log('❌ Closing menu for:', speakerName);
         next.delete(speakerName);
       } else {
-        console.log('✅ Opening menu for:', speakerName);
         // Close other menus first
         next.clear();
         next.add(speakerName);
       }
-      console.log('📋 Updated openMenus:', Array.from(next));
       return next;
     });
   };
@@ -631,18 +607,14 @@ export default function SpeakerSetupPage() {
   };
 
   const handleMenuUpload = (speakerName: string) => {
-    console.log('📤 handleMenuUpload called for:', speakerName);
-    
     // Create file input if it doesn't exist
     if (!fileInputRefs.current[speakerName]) {
-      console.log('🆕 Creating new file input for:', speakerName);
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
       fileInput.accept = 'audio/*';
       fileInput.style.display = 'none';
       fileInput.onchange = (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];
-        console.log('📁 File selected:', file?.name);
         if (file) {
           handleFileUpload(speakerName, file);
           // Reset the input so the same file can be selected again
@@ -652,7 +624,6 @@ export default function SpeakerSetupPage() {
       document.body.appendChild(fileInput);
       fileInputRefs.current[speakerName] = fileInput;
     }
-    console.log('🖱️ Triggering file input click');
     fileInputRefs.current[speakerName]?.click();
   };
 
@@ -667,27 +638,6 @@ export default function SpeakerSetupPage() {
           Add voice profiles for meeting participants to enable speaker identification.
         </p>
         
-        {/* Debug Info */}
-        <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-sm">
-          <p className="text-yellow-800 dark:text-yellow-200">
-            <strong>Debug Info:</strong> Open console to see three-dot menu debugging. 
-            Current open menus: {Array.from(openMenus).join(', ') || 'None'}
-          </p>
-          
-          {/* Test Dropdown */}
-          <div className="mt-2">
-            <button
-              onClick={() => {
-                console.log('🧪 Test button clicked');
-                setOpenMenus(new Set(['TEST_MENU']));
-                setMenuPositions({ 'TEST_MENU': { top: 200, left: 200 } });
-              }}
-              className="px-3 py-1 bg-blue-500 text-white rounded text-xs"
-            >
-              Test Dropdown (should appear at top-left)
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Add New Speaker */}
@@ -874,24 +824,6 @@ export default function SpeakerSetupPage() {
         </div>
       )}
       
-      {/* Test Dropdown */}
-      <DropdownMenu
-        isOpen={openMenus.has('TEST_MENU')}
-        onClose={() => setOpenMenus(prev => {
-          const next = new Set(prev);
-          next.delete('TEST_MENU');
-          return next;
-        })}
-        onUpload={() => {
-          console.log('🧪 Test upload clicked');
-          setOpenMenus(prev => {
-            const next = new Set(prev);
-            next.delete('TEST_MENU');
-            return next;
-          });
-        }}
-        position={menuPositions['TEST_MENU'] || { top: 0, left: 0 }}
-      />
     </div>
   );
 }

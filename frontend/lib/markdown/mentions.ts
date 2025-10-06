@@ -6,31 +6,19 @@ import React from 'react';
 export function highlightMentions(text: string): React.ReactNode {
   if (!text) return text;
   
-  // Split by speaker mentions (names in parentheses or brackets)
-  const parts = text.split(/(\([^)]+\)|\[[^\]]+\])/);
+  // Split by @mentions
+  const parts = text.split(/(\B@[A-Za-z][A-Za-z0-9_.-]{0,63}\b)/);
   
   return parts.map((part, index) => {
-    if (part.match(/^\([^)]+\)$/)) {
-      // Speaker mention in parentheses - style it
-      const speakerName = part.slice(1, -1);
+    if (part.match(/^\B@[A-Za-z][A-Za-z0-9_.-]{0,63}\b$/)) {
+      // @mention - style it with grey color and semi-bold weight
       return React.createElement(
         'span',
         {
           key: index,
-          className: 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+          style: { color: '#9B9B9B', fontWeight: 600 }
         },
-        speakerName
-      );
-    } else if (part.match(/^\[[^\]]+\]$/)) {
-      // Speaker mention in brackets - style it differently
-      const speakerName = part.slice(1, -1);
-      return React.createElement(
-        'span',
-        {
-          key: index,
-          className: 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-        },
-        speakerName
+        part
       );
     } else {
       // Regular text

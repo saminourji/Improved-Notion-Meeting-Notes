@@ -16,8 +16,8 @@ jest.mock('../mentions', () => ({
 }));
 
 describe('Summary Rendering', () => {
-  describe('Blocks Renderer Path (preferred for lists/tasks)', () => {
-    it('should render bulleted lists with visible bullets using blocks renderer', () => {
+  describe('ReactMarkdown rendering (unified path)', () => {
+    it('should render bulleted lists with visible bullets', () => {
       const summary = `
 ## Key Points
 - First bullet point
@@ -27,7 +27,6 @@ describe('Summary Rendering', () => {
 
       render(<SummaryTab summary={summary} />);
       
-      // Should render as blocks renderer since it contains lists
       expect(screen.getByText('Key Points')).toBeInTheDocument();
       expect(screen.getByText('First bullet point')).toBeInTheDocument();
       expect(screen.getByText('Second bullet point')).toBeInTheDocument();
@@ -44,7 +43,6 @@ describe('Summary Rendering', () => {
 
       render(<SummaryTab summary={summary} />);
       
-      // Should render as blocks renderer since it contains task lists
       expect(screen.getByText('Action Items')).toBeInTheDocument();
       expect(screen.getByText('Task 1')).toBeInTheDocument();
       expect(screen.getByText('Completed task')).toBeInTheDocument();
@@ -58,7 +56,7 @@ describe('Summary Rendering', () => {
       expect(checkboxes[2]).not.toBeChecked(); // - [ ]
     });
 
-    it('should render numbered lists using blocks renderer', () => {
+    it('should render numbered lists', () => {
       const summary = `
 ## Steps
 1. First step
@@ -74,7 +72,7 @@ describe('Summary Rendering', () => {
       expect(screen.getByText('Third step')).toBeInTheDocument();
     });
 
-    it('should render mixed content with bullets and checkboxes using blocks renderer', () => {
+    it('should render mixed content with bullets and checkboxes', () => {
       const summary = `
 ## Meeting Summary
 
@@ -116,7 +114,7 @@ describe('Summary Rendering', () => {
     });
   });
 
-  describe('ReactMarkdown Path (fallback for simple content)', () => {
+  describe('Headings and styles', () => {
     it('should render headings with distinct styles', () => {
       const summary = `
 # Main Title
@@ -199,62 +197,8 @@ describe('Summary Rendering', () => {
     });
   });
 
-  describe('markdownToBlocks Integration', () => {
-    it('should parse task lists correctly', async () => {
-      const markdown = `
-## Action Items
-- [ ] Task 1
-- [x] Task 2
-`;
-
-      const blocks = await markdownToBlocks(markdown);
-      
-      expect(blocks).toHaveLength(2);
-      expect(blocks[0].type).toBe('heading');
-      expect(blocks[1].type).toBe('todo');
-      expect((blocks[1] as TodoBlock).checked).toBe(false);
-    });
-
-    it('should parse bulleted lists correctly', async () => {
-      const markdown = `
-## Points
-- Point 1
-- Point 2
-`;
-
-      const blocks = await markdownToBlocks(markdown);
-      
-      expect(blocks).toHaveLength(2);
-      expect(blocks[0].type).toBe('heading');
-      expect(blocks[1].type).toBe('list');
-      expect((blocks[1] as ListBlock).children).toHaveLength(2);
-    });
-
-    it('should parse mixed content correctly', async () => {
-      const markdown = `
-## Summary
-
-### Discussion
-- Point 1
-- Point 2
-
-### Tasks
-- [ ] Task 1
-- [x] Task 2
-`;
-
-      const blocks = await markdownToBlocks(markdown);
-      
-      // Should have heading, list, heading, todo, todo
-      expect(blocks.length).toBeGreaterThan(3);
-      
-      const todos = blocks.filter(b => b.type === 'todo');
-      const lists = blocks.filter(b => b.type === 'list');
-      
-      expect(todos.length).toBeGreaterThan(0);
-      expect(lists.length).toBeGreaterThan(0);
-    });
-  });
+  // markdownToBlocks tests are no longer relevant to SummaryTab rendering path,
+  // but we keep unit tests for the blocks renderer itself below for coverage.
 
   describe('Edge Cases', () => {
     it('should handle empty summary', () => {
@@ -262,7 +206,7 @@ describe('Summary Rendering', () => {
       // Should render nothing or empty content
     });
 
-    it('should handle summary without lists using ReactMarkdown fallback', () => {
+    it('should handle summary without lists', () => {
       const summary = `
 ## Executive Summary
 This is a simple summary without any lists or tasks.

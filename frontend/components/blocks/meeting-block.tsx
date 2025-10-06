@@ -21,7 +21,6 @@ import {
   Volume2,
   Copy,
   Sliders,
-  Wand2,
   ThumbsUp,
   ThumbsDown,
   UserCheck,
@@ -50,39 +49,56 @@ interface MeetingBlockProps {
   errorMessage: string;
 }
 
-// Audio Visualization Component
-const AudioVisualization = ({ isActive }: { isActive: boolean }) => {
-  const [dots, setDots] = useState<number[]>([]);
+// Real-time Audio Visualization Component
+const AudioVisualization = ({ isActive, analyser }: { isActive: boolean; analyser: AnalyserNode | null }) => {
+  const [bars, setBars] = useState<number[]>([]);
 
   useEffect(() => {
-    if (!isActive) {
-      setDots([]);
+    if (!isActive || !analyser) {
+      setBars([]);
       return;
     }
 
-    const generateDots = () => {
-      const dotCount = 65;
-      const newDots = Array.from({ length: dotCount }, () => Math.random());
-      setDots(newDots);
+    const updateVisualization = () => {
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      analyser.getByteFrequencyData(dataArray);
+      
+      // Create 65 bars from the frequency data
+      const barCount = 65;
+      const newBars: number[] = [];
+      
+      for (let i = 0; i < barCount; i++) {
+        // Map frequency data to bars (use different frequency ranges)
+        const dataIndex = Math.floor((i / barCount) * bufferLength);
+        const frequency = dataArray[dataIndex];
+        // Normalize to 0-1 range and add some smoothing
+        const normalizedValue = Math.min(frequency / 255, 1);
+        newBars.push(normalizedValue);
+      }
+      
+      setBars(newBars);
+      
+      if (isActive) {
+        requestAnimationFrame(updateVisualization);
+      }
     };
 
-    generateDots();
-    const interval = setInterval(generateDots, 150);
-
-    return () => clearInterval(interval);
-  }, [isActive]);
+    updateVisualization();
+  }, [isActive, analyser]);
 
   if (!isActive) return null;
 
   return (
-    <div className="flex items-center gap-1 ml-6 mr-auto">
-      {dots.map((intensity, index) => (
+    <div className="flex items-center gap-1 ml-6 mr-auto h-6">
+      {bars.map((intensity, index) => (
         <div
           key={index}
-          className="w-1 h-1 rounded-full transition-all duration-150"
+          className="w-1 rounded-full transition-all duration-75"
           style={{
             backgroundColor: intensity > 0.7 ? '#1A1A1A' : intensity > 0.4 ? '#6B6B6B' : '#E5E5E5',
-            opacity: intensity > 0.2 ? 1 : 0.3,
+            opacity: intensity > 0.1 ? 1 : 0.3,
+            height: `${Math.max(2, 4 + intensity * 20)}px`,
             transform: `scaleY(${0.5 + intensity * 1.5})`
           }}
         />
@@ -114,48 +130,69 @@ const ProcessingIndicator = () => {
 };
 
 // Speaker Display Component
-const SpeakerDisplaySection = ({ speakers }: { speakers: Array<{ name: string; matched: boolean }> }) => {
+const SpeakerDisplaySection = ({ 
+  speakers, 
+  selectedSpeaker, 
+  onSpeakerClick 
+}: { 
+  speakers: Array<{ name: string; matched: boolean }>;
+  selectedSpeaker: string | null;
+  onSpeakerClick: (speakerName: string) => void;
+}) => {
   if (!speakers || speakers.length === 0) return null;
 
-  const matchedSpeakers = speakers.filter(s => s.matched);
-  const unmatchedSpeakers = speakers.filter(s => !s.matched);
+  const allSpeakers = [...speakers];
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-      <div className="flex items-center gap-2 mb-3">
-        <Users size={16} className="text-gray-600" />
-        <h3 className="text-sm font-medium text-gray-900">Detected Speakers</h3>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Users size={16} className="text-gray-600" />
+          <h3 className="text-sm font-medium text-gray-900">Detected Speakers</h3>
+        </div>
+        {selectedSpeaker && (
+          <button
+            onClick={() => onSpeakerClick('')}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            Show all
+          </button>
+        )}
       </div>
       
-      <div className="space-y-2">
-        {/* Matched speakers */}
-        {matchedSpeakers.map((speaker, index) => (
-          <div key={`matched-${index}`} className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-              <UserCheck size={12} className="text-green-600" />
+      <div className="flex flex-row flex-wrap gap-4">
+        {allSpeakers.map((speaker, index) => (
+          <div 
+            key={`speaker-${index}`} 
+            className={`flex items-center gap-2 cursor-pointer transition-all duration-200 ${
+              selectedSpeaker === speaker.name 
+                ? 'bg-blue-50 rounded-lg px-2 py-1' 
+                : 'hover:bg-gray-100 rounded-lg px-2 py-1'
+            }`}
+            onClick={() => onSpeakerClick(speaker.name)}
+          >
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
+              speaker.matched 
+                ? 'bg-green-100 text-green-700 border-2 border-green-200' 
+                : 'bg-gray-200 text-gray-600 border-2 border-gray-300'
+            }`}>
+              {getInitials(speaker.name)}
             </div>
             <span className="text-sm text-gray-900 font-medium">{speaker.name}</span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Registered
-            </span>
-          </div>
-        ))}
-        
-        {/* Unmatched speakers */}
-        {unmatchedSpeakers.map((speaker, index) => (
-          <div key={`unmatched-${index}`} className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-              <UserX size={12} className="text-gray-600" />
-            </div>
-            <span className="text-sm text-gray-700">{speaker.name}</span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-              Unknown
-            </span>
           </div>
         ))}
       </div>
       
-      {unmatchedSpeakers.length > 0 && (
+      {speakers.some(s => !s.matched) && (
         <p className="mt-3 text-xs text-gray-500">
           To register unknown speakers, go to <strong>Speaker Setup</strong> and add their voice samples.
         </p>
@@ -214,6 +251,9 @@ export const MeetingBlock = ({ block, editor }: any) => {
   const [showResults, setShowResults] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<MeetingTab>('notes');
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<number | null>(null);
@@ -254,21 +294,54 @@ export const MeetingBlock = ({ block, editor }: any) => {
 
   const getActionItems = () => {
     try {
-      return block.props.actionItems ? JSON.parse(block.props.actionItems) : [];
+      return block.props.actionItems ? JSON.parse(block.props.actionItems) : {};
     } catch {
-      return [];
+      return {};
     }
   };
 
-  const buildActionItemsMarkdown = (items: Array<{ id: string; text: string; assignee?: string; completed?: boolean }>) => {
-    if (!items || items.length === 0) return "";
+  const getFilteredActionItems = (allItems: Record<string, string[]>, selectedSpeaker: string | null) => {
+    if (!selectedSpeaker) {
+      return allItems;
+    }
+    
+    const filtered: Record<string, string[]> = {};
+    
+    // Always include the selected speaker's items
+    if (allItems[selectedSpeaker]) {
+      filtered[selectedSpeaker] = allItems[selectedSpeaker];
+    }
+    
+    // Include "Everyone" items if they exist
+    if (allItems["Everyone"]) {
+      filtered["Everyone"] = allItems["Everyone"];
+    }
+    
+    // Include "Other" items if they exist
+    if (allItems["Other"]) {
+      filtered["Other"] = allItems["Other"];
+    }
+    
+    return filtered;
+  };
+
+  const buildActionItemsMarkdown = (actionItemsByPerson: Record<string, string[]>) => {
+    if (!actionItemsByPerson || Object.keys(actionItemsByPerson).length === 0) return "";
+    
     const lines: string[] = [];
     lines.push("\n\n## Action Items\n");
-    for (const item of items) {
-      const checked = item.completed ? "x" : " ";
-      const assignee = item.assignee ? ` (Assigned to: ${item.assignee})` : "";
-      lines.push(`- [${checked}] ${item.text}${assignee}`);
-    }
+    
+    // Process each person's action items
+    Object.entries(actionItemsByPerson).forEach(([person, tasks]) => {
+      if (tasks && tasks.length > 0) {
+        lines.push(`@${person}:`);
+        tasks.forEach(task => {
+          lines.push(`- [ ] ${task}`);
+        });
+        lines.push(""); // Add blank line between sections
+      }
+    });
+    
     return lines.join("\n");
   };
 
@@ -313,6 +386,18 @@ export const MeetingBlock = ({ block, editor }: any) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
+      // Set up Web Audio API for real-time visualization
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 256;
+      analyserNode.smoothingTimeConstant = 0.8;
+      
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyserNode);
+      
+      setAudioContext(audioCtx);
+      setAnalyser(analyserNode);
+      
       // Use WebM/Opus when supported, fallback to default
       const mimeType = 'audio/webm;codecs=opus';
       const isWebMSupported = MediaRecorder.isTypeSupported(mimeType);
@@ -328,6 +413,11 @@ export const MeetingBlock = ({ block, editor }: any) => {
 
       recorder.onstop = () => {
         stream.getTracks().forEach(track => track.stop());
+        if (audioCtx) {
+          audioCtx.close();
+        }
+        setAudioContext(null);
+        setAnalyser(null);
         setMediaRecorder(null);
         setAudioChunks([]);
       };
@@ -371,6 +461,13 @@ export const MeetingBlock = ({ block, editor }: any) => {
       if (intervalRef.current) {
         window.clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+
+      // Close audio context for visualization
+      if (audioContext) {
+        audioContext.close();
+        setAudioContext(null);
+        setAnalyser(null);
       }
 
       setTimeout(() => {
@@ -500,7 +597,7 @@ export const MeetingBlock = ({ block, editor }: any) => {
             {!block.props.status && (
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-700">
-                  <strong>Note:</strong> You'll be asked to allow microphone access when you start recording. 
+                  <strong>Note:</strong> You&apos;ll be asked to allow microphone access when you start recording. 
                   This is required for audio capture and will only be used for this meeting.
                 </p>
               </div>
@@ -518,15 +615,12 @@ export const MeetingBlock = ({ block, editor }: any) => {
               meetingData={block.props}
             />
 
-            <AudioVisualization isActive={currentState === 'state2_duringRecording'} />
+            <AudioVisualization isActive={currentState === 'state2_duringRecording'} analyser={analyser} />
           </div>
 
           <div className="flex items-center gap-6">
             {currentState === 'state1_beforeRecording' && (
               <>
-                <button className="w-10 h-10 flex items-center justify-center bg-transparent border-none rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <Sliders size={18} strokeWidth={2} className="text-[#6B6B6B]" />
-                </button>
                 <div className="relative" ref={dropdownRef}>
                   <div className="flex items-center rounded-lg overflow-hidden" style={{ boxShadow: '0 2px 8px rgba(40, 131, 227, 0.2)' }}>
                     <button
@@ -564,18 +658,6 @@ export const MeetingBlock = ({ block, editor }: any) => {
           
           {currentState === 'state2_duringRecording' && (
             <>
-              <button className="w-10 h-10 flex items-center justify-center bg-transparent border-none rounded-lg cursor-pointer hover:bg-gray-50">
-                <Wand2 size={18} strokeWidth={2} className="text-[#6B6B6B]" />
-              </button>
-              <button className="w-10 h-10 flex items-center justify-center bg-transparent border-none rounded-lg cursor-pointer hover:bg-gray-50">
-                <Sliders size={18} strokeWidth={2} className="text-[#6B6B6B]" />
-              </button>
-              <button className="w-10 h-10 flex items-center justify-center bg-transparent border-none rounded-lg cursor-pointer hover:bg-gray-50">
-                <Volume2 size={18} strokeWidth={2} className="text-[#6B6B6B]" />
-              </button>
-              <button className="w-10 h-10 flex items-center justify-center bg-transparent border-none rounded-lg cursor-pointer hover:bg-gray-50">
-                <Copy size={18} strokeWidth={2} className="text-[#6B6B6B]" />
-              </button>
               <button
                 onClick={stopRecording}
                 className="h-[50px] px-6 bg-[#FEE2E2] text-[#EF4444] text-base font-semibold rounded-lg border-none cursor-pointer min-w-[100px] transition-all duration-200 hover:bg-[#FECACA]"
@@ -644,11 +726,15 @@ export const MeetingBlock = ({ block, editor }: any) => {
         {block.props.status === 'completed' && (
           <div className="mt-4">
             {/* Speaker Display Section */}
-            <SpeakerDisplaySection speakers={getParticipants()} />
+            <SpeakerDisplaySection 
+              speakers={getParticipants()} 
+              selectedSpeaker={selectedSpeaker}
+              onSpeakerClick={(speakerName) => setSelectedSpeaker(speakerName || null)}
+            />
             
             {activeTab === 'summary' && hasSummary(block.props) && (
               <SummaryTab 
-                summary={(block.props.summary || "") + buildActionItemsMarkdown(getActionItems())}
+                summary={(block.props.summary || "") + buildActionItemsMarkdown(getFilteredActionItems(getActionItems(), selectedSpeaker))}
                 isProcessing={isMeetingProcessing(block.props)}
               />
             )}
