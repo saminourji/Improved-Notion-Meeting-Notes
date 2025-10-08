@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import DemoProvider from "@/components/providers/demo-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -39,8 +40,10 @@ export default function RootLayout({
           disableTransitionOnChange
           storageKey="meeting-notes-theme"
         >
-          <Toaster position="bottom-right" />
-          {children}
+          <DemoProvider>
+            <Toaster position="bottom-right" />
+            {children}
+          </DemoProvider>
         </ThemeProvider>
       </body>
     </html>

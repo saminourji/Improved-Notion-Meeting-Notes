@@ -21,14 +21,20 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiService, SpeakerConfig } from "@/lib/api";
+import { getDemoMode } from "@/lib/demo";
+import { demoSpeakers } from "@/lib/demoData";
+// Use public/ paths so <img src> renders exact URL strings
+const IvanPortrait = "/Ivan_portrait.png";
+const ShirPortrait = "/Shir_portrait.png";
+const SamiPortrait = "/Sami_portrait.png";
+const Rand1 = "/random_portrait_1.png";
+const Rand2 = "/random_portrait_2.png";
+const Rand3 = "/random_portrait_3.png";
+const Rand4 = "/random_portrait_4.png";
 
 type RecordingState = 'idle' | 'requesting_permission' | 'recording' | 'completed' | 'error';
 
 const PROFILE_PHOTOS = [
-  '/my-notion-face-portrait.png',
-  '/my-notion-face-portrait_1.png',
-  '/my-notion-face-portrait_2.png',
-  '/my-notion-face-portrait_yair_sha.png',
   '/Notion_AI_Face.png'
 ];
 
@@ -404,6 +410,35 @@ export default function SpeakerSetupPage() {
 
   const loadSpeakers = async () => {
     try {
+      // Prepopulate demo speakers with correct portraits when demo mode is enabled
+      const urlDemo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('demo') === '1' : false;
+      if (getDemoMode() || urlDemo) {
+        console.log('[demo] Speaker setup: demo mode enabled');
+        const sarahOptions = [Rand1, Rand2, Rand3, Rand4];
+        const sarahPick = sarahOptions[Math.floor(Math.random() * sarahOptions.length)];
+        const portraitByName: Record<string, string> = {
+          Ivan: IvanPortrait,
+          Shir: ShirPortrait,
+          Sami: SamiPortrait,
+          Sarah: sarahPick,
+        };
+        console.log('[demo] portraitByName', portraitByName);
+        const demo: SpeakerConfig[] = demoSpeakers.map((s) => ({
+          id: s.name,
+          name: s.name,
+          metadata: {
+            profilePhoto: portraitByName[s.name] || s.metadata.profilePhoto,
+            created_at: new Date().toISOString(), // mark as recorded
+          },
+        })) as unknown as SpeakerConfig[];
+        console.log('[demo] speakers to set', demo);
+
+        setSpeakers(demo);
+        setRecordedSpeakers(new Set(demo.map((s) => s.name)));
+        setExpandedSpeakers(new Set());
+        return;
+      }
+
       const speakersData = await apiService.getSpeakers();
       // Assign unique profile photos to speakers that don't have them
       const usedPhotos = new Set<string>();
@@ -719,11 +754,11 @@ export default function SpeakerSetupPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <img
-                          src={speaker.metadata?.profilePhoto || '/my-notion-face-portrait.png'}
+                          src={speaker.metadata?.profilePhoto || '/Notion_AI_Face.png'}
                           alt={speaker.name}
                           className="w-10 h-10 rounded-full object-cover"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/my-notion-face-portrait.png';
+                            (e.target as HTMLImageElement).src = '/Notion_AI_Face.png';
                           }}
                         />
                         <div>
@@ -758,11 +793,11 @@ export default function SpeakerSetupPage() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={speaker.metadata?.profilePhoto || '/my-notion-face-portrait.png'}
+                          src={speaker.metadata?.profilePhoto || '/Notion_AI_Face.png'}
                           alt={speaker.name}
                           className="w-10 h-10 rounded-full object-cover"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/my-notion-face-portrait.png';
+                            (e.target as HTMLImageElement).src = '/Notion_AI_Face.png';
                           }}
                         />
                         <div>

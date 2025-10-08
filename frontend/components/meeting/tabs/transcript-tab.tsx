@@ -2,6 +2,7 @@
 
 import React from "react";
 import { formatSeconds } from "@/lib/utils";
+import { apiService, SpeakerConfig } from "@/lib/api";
 
 interface TranscriptSegment {
   start: number;
@@ -15,16 +16,94 @@ interface TranscriptTabProps {
   transcript: TranscriptSegment[];
 }
 
-const getSpeakerColor = (speaker: string): string => {
-  const colors = [
-    'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30',
-    'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30',
-    'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/30',
-    'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30',
-    'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30',
-  ];
-  const hash = speaker.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-  return colors[hash % colors.length];
+// Cache for speaker data to avoid repeated API calls
+let speakersCache: SpeakerConfig[] | null = null;
+let speakersCacheTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get speakers data with caching
+ */
+async function getSpeakersWithCache(): Promise<SpeakerConfig[]> {
+  const now = Date.now();
+  if (speakersCache && (now - speakersCacheTime) < CACHE_DURATION) {
+    return speakersCache;
+  }
+  
+  try {
+    speakersCache = await apiService.getSpeakers();
+    speakersCacheTime = now;
+    return speakersCache;
+  } catch (error) {
+    console.error('Failed to load speakers:', error);
+    return speakersCache || [];
+  }
+}
+
+/**
+ * Speaker badge component with profile picture
+ * Renders a neutral grey pill (same grey as @Today) with avatar + username
+ */
+const SpeakerBadge: React.FC<{ speakerName: string }> = ({ speakerName }) => {
+  const [speaker, setSpeaker] = React.useState<SpeakerConfig | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const loadSpeaker = async () => {
+      try {
+        const speakers = await getSpeakersWithCache();
+        const foundSpeaker = speakers.find(s => s.name === speakerName);
+        setSpeaker(foundSpeaker || null);
+      } catch (error) {
+        console.error('Error loading speaker:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSpeaker();
+  }, [speakerName]);
+
+  // Consistent neutral styling matching the @Today grey (#9B9B9B)
+  const pillClass = "inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium text-[#9B9B9B] border border-[#9B9B9B]/40";
+
+  if (isLoading) {
+    // Show loading state with just the name
+    return (
+      <span className={pillClass}>
+        {speakerName}
+      </span>
+    );
+  }
+
+  if (speaker && speaker.metadata?.profilePhoto) {
+    // Show speaker with profile picture
+    return (
+      <span className={pillClass}>
+        <img
+          src={speaker.metadata.profilePhoto}
+          alt={speaker.name}
+          className="w-4 h-4 rounded-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/Notion_AI_Face.png';
+          }}
+        />
+        {speakerName}
+      </span>
+    );
+  }
+
+  // Fallback to badge with default Notion AI face
+  return (
+    <span className={pillClass}>
+      <img
+        src={'/Notion_AI_Face.png'}
+        alt={speakerName}
+        className="w-4 h-4 rounded-full object-cover"
+      />
+      {speakerName}
+    </span>
+  );
 };
 
 export const TranscriptTab: React.FC<TranscriptTabProps> = ({ transcript }) => {
@@ -80,10 +159,8 @@ export const TranscriptTab: React.FC<TranscriptTabProps> = ({ transcript }) => {
             {formatSeconds(segment.start)}
           </div>
           <div className="flex-1">
-            <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium mr-2 ${getSpeakerColor(segment.speaker)}`}>
-              {segment.speaker}
-            </span>
-            <span className="text-sm text-gray-900 dark:text-gray-100">
+            <SpeakerBadge speakerName={segment.speaker} />
+            <span className="text-sm text-gray-900 dark:text-gray-100 ml-2">
               {segment.text}
             </span>
           </div>

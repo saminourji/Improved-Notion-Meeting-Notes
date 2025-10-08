@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ParticipantBadge } from "@/components/meeting/participant-badge";
 import { 
   FileText, 
   Edit, 
@@ -20,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiService, MeetingData } from "@/lib/api";
 import { toast } from "sonner";
+import { SettingsIcon } from "@/components/ui/settings-icon";
 
 interface MeetingIdPageProps {
   params: {
@@ -160,9 +162,7 @@ const MeetingIdPage = ({ params }: MeetingIdPageProps) => {
 
               <div className="flex flex-wrap gap-2">
                 {meeting.participants?.map((participant, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {participant}
-                  </Badge>
+                  <ParticipantBadge key={index} participantName={participant} />
                 )) || null}
               </div>
             </div>
@@ -177,7 +177,7 @@ const MeetingIdPage = ({ params }: MeetingIdPageProps) => {
                 Share
               </Button>
               <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4" />
+                <SettingsIcon className="h-4 w-4" />
               </Button>
             </div>
           </div>

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiService, SpeakerConfig, MeetingData } from "@/lib/api";
+import { SettingsIcon } from "@/components/ui/settings-icon";
 
 type RecordingState = 'idle' | 'requesting_permission' | 'recording' | 'paused' | 'completed' | 'error';
 
@@ -301,7 +302,7 @@ export default function NewMeetingPage() {
     switch (recordingState) {
       case 'requesting_permission':
         return (
-          <Button disabled className="w-full h-16 text-lg">
+          <Button disabled className="w-full h-10 text-lg">
             <div className="animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full mr-3" />
             Requesting Access...
           </Button>
@@ -312,14 +313,14 @@ export default function NewMeetingPage() {
             <Button
               onClick={handlePauseRecording}
               variant="outline"
-              className="flex-1 h-16"
+              className="flex-1 h-10"
             >
               <Pause className="h-5 w-5 mr-2" />
               Pause
             </Button>
             <Button
               onClick={handleStopRecording}
-              className="flex-1 h-16 bg-red-500 hover:bg-red-600 text-white"
+              className="flex-1 h-10 bg-red-500 hover:bg-red-600 text-white"
             >
               <Square className="h-5 w-5 mr-2" />
               Stop Recording
@@ -331,7 +332,7 @@ export default function NewMeetingPage() {
           <div className="flex gap-3">
             <Button
               onClick={handleResumeRecording}
-              className="flex-1 h-16"
+              className="flex-1 h-10"
             >
               <Play className="h-5 w-5 mr-2" />
               Resume
@@ -339,7 +340,7 @@ export default function NewMeetingPage() {
             <Button
               onClick={handleStopRecording}
               variant="outline"
-              className="flex-1 h-16"
+              className="flex-1 h-10"
             >
               <Square className="h-5 w-5 mr-2" />
               Stop
@@ -364,7 +365,7 @@ export default function NewMeetingPage() {
         return (
           <Button
             onClick={handleStartRecording}
-            className="w-full h-16 text-lg"
+            className="w-full h-10 text-lg"
             disabled={!meetingTitle.trim()}
           >
             <Mic className="h-5 w-5 mr-2" />
@@ -375,7 +376,7 @@ export default function NewMeetingPage() {
         return (
           <Button
             onClick={handleStartRecording}
-            className="w-full h-16 text-lg"
+            className="w-full h-10 text-lg"
             disabled={!meetingTitle.trim()}
           >
             <Mic className="h-5 w-5 mr-2" />
@@ -392,12 +393,21 @@ export default function NewMeetingPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Start New Meeting
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Record a live meeting with real-time transcription and speaker identification.
-          </p>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                Start New Meeting
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Record a live meeting with real-time transcription and speaker identification.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-6 shrink-0">
+              <Button variant="outline" size="sm">
+                <SettingsIcon className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">

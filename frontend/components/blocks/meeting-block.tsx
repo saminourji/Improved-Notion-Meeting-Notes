@@ -32,7 +32,10 @@ import { TabNavigation, MeetingTab } from '@/components/meeting/tabs/tab-navigat
 import { SummaryTab } from '@/components/meeting/tabs/summary-tab';
 import { NotesTab } from '@/components/meeting/tabs/notes-tab';
 const TranscriptTab = dynamic(() => import('@/components/meeting/tabs/transcript-tab'), { ssr: false });
+import { DotAudioVisualization } from '@/components/meeting/dot-audio-visualization';
 import { apiService } from '@/lib/api';
+import { getDemoMode, initDemoGlobals } from '@/lib/demo';
+import { demoParticipants, demoTranscript, demoSummaryMarkdown, demoActionItemsMarkdown, demoSpeakers } from '@/lib/demoData';
 import { formatSeconds, isMeetingProcessing, hasSummary } from '@/lib/utils';
 
 interface MeetingBlockProps {
@@ -115,11 +118,10 @@ const ProcessingIndicator = () => {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
+            className="w-1.5 h-1.5 rounded-full animate-bounce-thinking"
             style={{
               backgroundColor: i === 0 ? '#EF4444' : i === 1 ? '#F59E0B' : '#10B981',
               animationDelay: `${i * 0.2}s`,
-              animationDuration: '1s'
             }}
           />
         ))}
@@ -143,13 +145,22 @@ const SpeakerDisplaySection = ({
 
   const allSpeakers = [...speakers];
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  // Load speaker configs to resolve consistent profile photos
+  const [speakerConfigs, setSpeakerConfigs] = React.useState<Record<string, { profilePhoto?: string }>>({});
+  React.useEffect(() => {
+    let mounted = true;
+    apiService.getSpeakers().then(list => {
+      if (!mounted) return;
+      const map: Record<string, { profilePhoto?: string }> = {};
+      list.forEach(s => { map[s.name] = { profilePhoto: s.metadata?.profilePhoto }; });
+      setSpeakerConfigs(map);
+    }).catch(() => { /* noop */ });
+    return () => { mounted = false; };
+  }, []);
+
+  const resolvePhoto = (name: string) => {
+    const meta = speakerConfigs[name];
+    return meta?.profilePhoto || '/Notion_AI_Face.png';
   };
 
   return (
@@ -180,13 +191,12 @@ const SpeakerDisplaySection = ({
             }`}
             onClick={() => onSpeakerClick(speaker.name)}
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-              speaker.matched 
-                ? 'bg-green-100 text-green-700 border-2 border-green-200' 
-                : 'bg-gray-200 text-gray-600 border-2 border-gray-300'
-            }`}>
-              {getInitials(speaker.name)}
-            </div>
+            <img
+              src={resolvePhoto(speaker.name)}
+              alt={speaker.name}
+              className={`w-8 h-8 rounded-full object-cover border-2 border-gray-300`}
+              onError={(e) => { (e.target as HTMLImageElement).src = '/Notion_AI_Face.png'; }}
+            />
             <span className="text-sm text-gray-900 font-medium">{speaker.name}</span>
           </div>
         ))}
@@ -197,6 +207,54 @@ const SpeakerDisplaySection = ({
           To register unknown speakers, go to <strong>Speaker Setup</strong> and add their voice samples.
         </p>
       )}
+    </div>
+  );
+};
+
+// Compact Detected Speakers row (for header)
+const DetectedSpeakersHeaderRow = ({
+  speakers,
+  onSpeakerClick,
+  selectedSpeaker
+}: {
+  speakers: Array<{ name: string; matched: boolean }>;
+  onSpeakerClick: (speakerName: string) => void;
+  selectedSpeaker: string | null;
+}) => {
+  if (!speakers || speakers.length === 0) return null;
+
+  const [speakerConfigs, setSpeakerConfigs] = React.useState<Record<string, { profilePhoto?: string }>>({});
+  React.useEffect(() => {
+    let mounted = true;
+    apiService.getSpeakers().then(list => {
+      if (!mounted) return;
+      const map: Record<string, { profilePhoto?: string }> = {};
+      list.forEach(s => { map[s.name] = { profilePhoto: s.metadata?.profilePhoto }; });
+      setSpeakerConfigs(map);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const resolvePhoto = (name: string) => speakerConfigs[name]?.profilePhoto || '/Notion_AI_Face.png';
+
+  return (
+    <div className="flex items-center gap-3">
+      {speakers.map((s, idx) => (
+        <button
+          key={`hdr-speaker-${idx}`}
+          onClick={() => onSpeakerClick(selectedSpeaker === s.name ? '' : s.name)}
+          className={`flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 transition-colors ${selectedSpeaker === s.name ? 'bg-blue-50' : ''}`}
+          title={s.name}
+        >
+          <img
+            src={resolvePhoto(s.name)}
+            alt={s.name}
+            className="w-6 h-6 rounded-full object-cover border border-gray-300"
+            onError={(e) => { (e.target as HTMLImageElement).src = '/Notion_AI_Face.png'; }}
+          />
+          <span className="text-sm text-gray-800">{s.name}</span>
+        </button>
+      ))}
     </div>
   );
 };
@@ -383,6 +441,25 @@ export const MeetingBlock = ({ block, editor }: any) => {
   }, [showDropdown]);
 
   const startRecording = async () => {
+    // If demo mode is enabled, simulate processing and inject scripted results
+    try {
+      if (getDemoMode()) {
+        initDemoGlobals(demoSpeakers);
+        updateBlock({ status: 'processing', errorMessage: undefined });
+        window.setTimeout(() => updateBlock({ status: 'processing', errorMessage: undefined }), 500);
+        window.setTimeout(() => updateBlock({ status: 'processing', errorMessage: undefined }), 1200);
+        window.setTimeout(() => updateBlock({
+          status: 'completed',
+          participants: demoParticipants as any,
+          transcript: demoTranscript as any,
+          summary: demoSummaryMarkdown,
+          actionItems: demoActionItemsMarkdown as any,
+          errorMessage: undefined,
+        }), 2000);
+        return;
+      }
+    } catch {}
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
@@ -584,10 +661,17 @@ export const MeetingBlock = ({ block, editor }: any) => {
 
   return (
     <div className="w-full bg-[#F7F6F3] border border-[#E5E5E5] my-2 rounded-3xl">
-      <div className="pt-3 pb-2 pl-[25px]">
-        <h1 className="leading-tight" style={{ fontSize: '28px', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.04em', fontWeight: 400, color: '#222222' }}>
-          <span style={{ fontWeight: 400, color: '#222222' }}>Meeting</span> <span style={{ fontWeight: 400, color: '#9B9B9B' }}>@Today</span>
+      <div className="pt-3 pb-2 pl-[25px] pr-4 flex items-center justify-between">
+        <h1 className="leading-tight" style={{ fontSize: '28px', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.04em', fontWeight: 600, color: '#222222' }}>
+          <span style={{ fontWeight: 600, color: '#222222' }}>Meeting</span> <span style={{ fontWeight: 600, color: '#9B9B9B' }}>@Today</span>
         </h1>
+        {getParticipants().length > 0 && (
+          <DetectedSpeakersHeaderRow 
+            speakers={getParticipants()} 
+            selectedSpeaker={selectedSpeaker}
+            onSpeakerClick={(name) => setSelectedSpeaker(name || null)}
+          />
+        )}
       </div>
 
       <div className="mt-1 bg-white border border-[#E5E5E5] rounded-t-2xl rounded-b-3xl p-5 -mx-px">
@@ -612,10 +696,12 @@ export const MeetingBlock = ({ block, editor }: any) => {
               onTabChange={(t) => setActiveTab(t)}
               showTranscript={block.props.status === 'completed' && getTranscript().length > 0}
               isCompleted={block.props.status === 'completed'}
+              isRecording={currentState === 'state2_duringRecording'}
+              isProcessing={currentState === 'state3_processing'}
               meetingData={block.props}
             />
 
-            <AudioVisualization isActive={currentState === 'state2_duringRecording'} analyser={analyser} />
+            <DotAudioVisualization isActive={currentState === 'state2_duringRecording'} analyser={analyser} />
           </div>
 
           <div className="flex items-center gap-6">
@@ -725,13 +811,7 @@ export const MeetingBlock = ({ block, editor }: any) => {
 
         {block.props.status === 'completed' && (
           <div className="mt-4">
-            {/* Speaker Display Section */}
-            <SpeakerDisplaySection 
-              speakers={getParticipants()} 
-              selectedSpeaker={selectedSpeaker}
-              onSpeakerClick={(speakerName) => setSelectedSpeaker(speakerName || null)}
-            />
-            
+            {/* Detected speakers now shown in header; no longer displayed here */}
             {activeTab === 'summary' && hasSummary(block.props) && (
               <SummaryTab 
                 summary={(block.props.summary || "") + buildActionItemsMarkdown(getFilteredActionItems(getActionItems(), selectedSpeaker))}

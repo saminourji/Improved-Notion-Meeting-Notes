@@ -24,7 +24,10 @@ export const ParticipantInput = ({ participants, onParticipantsChange }: Partici
   useEffect(() => {
     setIsLoadingSpeakers(true);
     apiService.getSpeakers().then((speakers) => {
-      const mapped = speakers.map(s => ({ name: s.name, avatar: s.name.slice(0,2).toUpperCase() }));
+      const mapped = speakers.map(s => ({ 
+        name: s.name, 
+        avatar: s.metadata?.profilePhoto || '/Notion_AI_Face.png'
+      }));
       setAllSuggestions(mapped);
       setFilteredSuggestions(mapped.filter(p => !participants.includes(p.name)));
     }).catch(() => {
@@ -172,9 +175,12 @@ export const ParticipantInput = ({ participants, onParticipantsChange }: Partici
                     onClick={() => addParticipant(person.name)}
                     className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-blue-500 text-white text-xs font-medium flex items-center justify-center">
-                      {person.avatar}
-                    </div>
+                    <img
+                      src={person.avatar}
+                      alt={person.name}
+                      className="w-8 h-8 rounded-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/Notion_AI_Face.png'; }}
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                         {person.name}
@@ -189,9 +195,11 @@ export const ParticipantInput = ({ participants, onParticipantsChange }: Partici
                 onClick={() => addParticipant(inputValue.trim())}
                 className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3"
               >
-                <div className="w-8 h-8 rounded-full bg-gray-400 text-white text-xs font-medium flex items-center justify-center">
-                  {inputValue.trim().charAt(0).toUpperCase()}
-                </div>
+                <img
+                  src={'/Notion_AI_Face.png'}
+                  alt="Unknown"
+                  className="w-8 h-8 rounded-full object-cover"
+                />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     Add &quot;{inputValue.trim()}&quot;

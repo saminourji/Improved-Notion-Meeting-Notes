@@ -90,11 +90,10 @@ const ProcessingIndicator = () => {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
+            className="w-1.5 h-1.5 rounded-full animate-bounce-thinking"
             style={{
               backgroundColor: i === 0 ? '#EF4444' : i === 1 ? '#F59E0B' : '#10B981',
               animationDelay: `${i * 0.2}s`,
-              animationDuration: '1s'
             }}
           />
         ))}

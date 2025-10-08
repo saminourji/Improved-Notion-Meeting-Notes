@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ParticipantBadge } from "@/components/meeting/participant-badge";
 import {
   Card,
   CardContent,
@@ -26,6 +27,7 @@ import {
 import { useRouter } from "next/navigation";
 import { apiService, MeetingData } from "@/lib/api";
 import { toast } from "sonner";
+import { installDemoDevHooks } from "@/lib/demo";
 
 export default function MeetingsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,6 +37,8 @@ export default function MeetingsPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Install hidden demo hooks (console API, URL param, and Cmd/Ctrl+Shift+E hotkey)
+    try { installDemoDevHooks(); } catch {}
     loadMeetings();
   }, []);
 
@@ -253,9 +257,7 @@ export default function MeetingsPage() {
 
                       <div className="flex flex-wrap gap-2">
                         {meeting.participants?.slice(0, 3).map((participant, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {participant}
-                          </Badge>
+                          <ParticipantBadge key={index} participantName={participant} />
                         ))}
                         {(meeting.participants?.length || 0) > 3 && (
                           <Badge variant="outline" className="text-xs">

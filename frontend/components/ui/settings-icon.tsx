@@ -1,0 +1,24 @@
+import React from 'react';
+
+interface SettingsIconProps {
+  className?: string;
+}
+
+export const SettingsIcon: React.FC<SettingsIconProps> = ({ className = "h-4 w-4" }) => {
+  return (
+    <svg 
+      viewBox="0 0 30 22" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path d="M0 4.50939H15.5807" stroke="black" strokeWidth="2"/>
+      <path d="M19.5 8.00939C21.433 8.00939 23 6.44238 23 4.50939C23 2.57639 21.433 1.00939 19.5 1.00939C17.567 1.00939 16 2.57639 16 4.50939C16 6.44238 17.567 8.00939 19.5 8.00939Z" stroke="black" strokeWidth="2"/>
+      <path d="M23.3141 4.50939L30 4.50939" stroke="black" strokeWidth="2"/>
+      <path d="M0 17.5H7.17587" stroke="black" strokeWidth="2"/>
+      <path d="M10.6759 21C12.6089 21 14.1759 19.433 14.1759 17.5C14.1759 15.567 12.6089 14 10.6759 14C8.74287 14 7.17587 15.567 7.17587 17.5C7.17587 19.433 8.74287 21 10.6759 21Z" stroke="black" strokeWidth="2"/>
+      <path d="M14.1759 17.5L30 17.5" stroke="black" strokeWidth="2"/>
+    </svg>
+  );
+};
+

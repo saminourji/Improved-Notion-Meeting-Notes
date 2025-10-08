@@ -15,6 +15,7 @@ import {
   Download
 } from 'lucide-react';
 import { formatSeconds } from "@/lib/utils";
+import { highlightMentionsSimple } from '@/lib/markdown/mentions';
 
 interface TranscriptSegment {
   start: number;
@@ -171,7 +172,7 @@ export const ResultsDisplay = ({
         {expandedSections.summary && (
           <div className="px-4 pb-4">
             <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded text-sm leading-relaxed">
-              {summary}
+              {highlightMentionsSimple(summary)}
             </div>
           </div>
         )}
@@ -204,7 +205,7 @@ export const ResultsDisplay = ({
                     />
                     <div className="flex-1">
                       <p className={`text-sm ${item.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
-                        {item.text}
+                        {highlightMentionsSimple(item.text)}
                       </p>
                       {item.assignee && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

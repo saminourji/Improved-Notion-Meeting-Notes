@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Block, CodeBlock, HeadingBlock, ListBlock, ListItemBlock, ParagraphBlock, QuoteBlock, TextSpan, TodoBlock } from '@/types/blocks';
-import { highlightMentions } from '@/lib/markdown/mentions';
+import { highlightMentionsSimple } from '@/lib/markdown/mentions';
 
 interface Props {
   blocks: Block[];
@@ -117,7 +117,7 @@ function Span({ span }: { span: TextSpan }) {
   
   // If not in code, highlight mentions
   if (!isInCode) {
-    content = highlightMentions(span.text);
+    content = highlightMentionsSimple(span.text);
   }
   
   for (const m of marks) {
