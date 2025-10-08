@@ -27,10 +27,11 @@ import {
   UserX
 } from 'lucide-react';
 import { ResultsDisplay } from './results-display';
+import dynamic from 'next/dynamic';
 import { TabNavigation, MeetingTab } from '@/components/meeting/tabs/tab-navigation';
 import { SummaryTab } from '@/components/meeting/tabs/summary-tab';
 import { NotesTab } from '@/components/meeting/tabs/notes-tab';
-import { TranscriptTab } from '@/components/meeting/tabs/transcript-tab';
+const TranscriptTab = dynamic(() => import('@/components/meeting/tabs/transcript-tab'), { ssr: false });
 import { DotAudioVisualization } from '@/components/meeting/dot-audio-visualization';
 import { apiService } from '@/lib/api';
 import { getDemoMode, initDemoGlobals } from '@/lib/demo';
@@ -140,6 +141,10 @@ const SpeakerDisplaySection = ({
   selectedSpeaker: string | null;
   onSpeakerClick: (speakerName: string) => void;
 }) => {
+  if (!speakers || speakers.length === 0) return null;
+
+  const allSpeakers = [...speakers];
+
   // Load speaker configs to resolve consistent profile photos
   const [speakerConfigs, setSpeakerConfigs] = React.useState<Record<string, { profilePhoto?: string }>>({});
   React.useEffect(() => {
@@ -152,10 +157,6 @@ const SpeakerDisplaySection = ({
     }).catch(() => { /* noop */ });
     return () => { mounted = false; };
   }, []);
-
-  if (!speakers || speakers.length === 0) return null;
-
-  const allSpeakers = [...speakers];
 
   const resolvePhoto = (name: string) => {
     const meta = speakerConfigs[name];
@@ -220,6 +221,8 @@ const DetectedSpeakersHeaderRow = ({
   onSpeakerClick: (speakerName: string) => void;
   selectedSpeaker: string | null;
 }) => {
+  if (!speakers || speakers.length === 0) return null;
+
   const [speakerConfigs, setSpeakerConfigs] = React.useState<Record<string, { profilePhoto?: string }>>({});
   React.useEffect(() => {
     let mounted = true;
@@ -231,8 +234,6 @@ const DetectedSpeakersHeaderRow = ({
     }).catch(() => {});
     return () => { mounted = false; };
   }, []);
-
-  if (!speakers || speakers.length === 0) return null;
 
   const resolvePhoto = (name: string) => speakerConfigs[name]?.profilePhoto || '/Notion_AI_Face.png';
 

@@ -40,7 +40,7 @@ export function rehypeMentions() {
       });
       
       // Replace the original text node with new nodes
-      if (newNodes.length > 0) {
+      if (newNodes.length > 0 && parent) {
         parent.children.splice(index!, 1, ...newNodes);
       }
     });

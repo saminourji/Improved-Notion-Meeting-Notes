@@ -10,7 +10,7 @@ export interface MeetingBlockProps {
   id: string;
   title: string;
   status: "idle" | "recording" | "processing" | "completed" | "error";
-  participants: string; // JSON string of Array<{ name: string; matched: boolean }>
+  participants: string;
   duration: number;
   audioUrl?: string;
   transcript?: string;
@@ -64,7 +64,7 @@ export const insertMeetingBlock: any = {
               id: meetingId,
               title: "New Meeting",
               status: "idle",
-              participants: JSON.stringify([]),
+              participants: [],
               duration: 0,
               createdAt: timestamp,
             } as any,

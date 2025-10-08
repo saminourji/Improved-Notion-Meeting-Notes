@@ -390,24 +390,68 @@ async def extract_action_items_endpoint(
     speaker: Optional[str] = Form(None),
     user_notes: Optional[str] = Form(None)
 ):
-    """Action items are now included in the main summary generation."""
-    return JSONResponse(content={
-        "success": False,
-        "message": "Action items are now included in the main summary generation. Please use the /summary endpoint instead.",
-        "deprecated": True
-    }, status_code=410)
+    """Extract action items from a speaker-annotated transcript.
+
+    Args:
+        transcript: Speaker-annotated meeting transcript
+        speaker: Optional speaker name for personalized view (if not provided, returns general view)
+        user_notes: Optional user-provided notes to incorporate into action items
+    """
+    logger = structlog.get_logger(__name__)
+
+    try:
+        proc = get_processor()
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        logger.info("extracting_action_items_from_transcript",
+                   transcript_length=len(transcript),
+                   target_speaker=speaker)
+
+        action_items_result = proc.llm_service.extract_action_items_by_speaker(
+            transcript, target_speaker=speaker, user_notes=user_notes
+        )
+
+        return JSONResponse(content={
+            "success": True,
+            "action_items_by_speaker": action_items_result["action_items"],
+            "metadata": action_items_result["metadata"]
+        })
+
+    except Exception as e:
+        logger.exception("action_items_extraction_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Action items extraction failed: {str(e)}")
 
 @app.post("/action-items/all-views")
 async def extract_all_action_items_views_endpoint(
     transcript: str = Form(...),
     user_notes: Optional[str] = Form(None)
 ):
-    """Action items are now included in the main summary generation."""
-    return JSONResponse(content={
-        "success": False,
-        "message": "Action items are now included in the main summary generation. Please use the /summary endpoint instead.",
-        "deprecated": True
-    }, status_code=410)
+    """Extract all action item views: general + speaker-specific views for each participant."""
+    logger = structlog.get_logger(__name__)
+
+    try:
+        proc = get_processor()
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        logger.info("extracting_all_action_item_views_from_transcript",
+                   transcript_length=len(transcript))
+
+        all_views_result = proc.llm_service.extract_all_action_item_views(transcript, user_notes)
+
+        return JSONResponse(content={
+            "success": True,
+            "general_view": all_views_result["general_view"],
+            "speaker_views": all_views_result["speaker_views"],
+            "metadata": all_views_result["metadata"]
+        })
+
+    except Exception as e:
+        logger.exception("all_action_items_views_extraction_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"All action items views extraction failed: {str(e)}")
 
 @app.post("/insights")
 async def generate_insights_endpoint(

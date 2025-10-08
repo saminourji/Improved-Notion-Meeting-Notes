@@ -494,7 +494,7 @@ export default function SpeakerSetupPage() {
         }
       } as SpeakerConfig;
       setSpeakers([...speakers, newSpeaker]);
-      setExpandedSpeakers(prev => new Set(Array.from(prev).concat(newSpeaker.name)));
+      setExpandedSpeakers(prev => new Set([...prev, newSpeaker.name]));
       setNewSpeakerName('');
       setShowAddForm(false);
       toast.success(`Speaker "${newSpeaker.name}" added. Upload a sample to register.`);
@@ -543,14 +543,14 @@ export default function SpeakerSetupPage() {
   };
 
   const handleVoiceSampleAdded = async (speakerName: string, audioBlob: Blob) => {
-    setUploadingSpeakers(prev => new Set(Array.from(prev).concat(speakerName)));
+    setUploadingSpeakers(prev => new Set([...prev, speakerName]));
     try {
       const saved = await apiService.saveSpeaker(speakerName, audioBlob);
       if (!saved) throw new Error('Upload failed');
       await loadSpeakers();
       
       // Mark speaker as recorded and collapse the card
-      setRecordedSpeakers(prev => new Set(Array.from(prev).concat(speakerName)));
+      setRecordedSpeakers(prev => new Set([...prev, speakerName]));
       setExpandedSpeakers(prev => {
         const next = new Set(prev);
         next.delete(speakerName);

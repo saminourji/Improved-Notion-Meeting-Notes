@@ -57,8 +57,8 @@ function renderList(list: ListBlock) {
     <Cmp className={cls}>
       {list.children.map((li, idx) => {
         // If this is a TodoBlock, render it directly without wrapping in <li>
-        if ((li as any).type === 'todo') {
-          return <div key={idx}>{renderTodo(li as unknown as TodoBlock)}</div>;
+        if (li.type === 'todo') {
+          return <div key={idx}>{renderTodo(li as TodoBlock)}</div>;
         }
         // Otherwise, wrap in <li> for regular list items
         return <li key={idx}>{renderListItem(li as ListItemBlock)}</li>;

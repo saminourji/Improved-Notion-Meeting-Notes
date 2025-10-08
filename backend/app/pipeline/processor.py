@@ -714,28 +714,36 @@ class MeetingProcessor:
                         }
                     )
 
-                    # Action items are now included in the summary
+                    # Generate all action item views (general + speaker-specific)
+                    all_action_views = self.llm_service.extract_all_action_item_views(
+                        transcription_result['speaker_annotated_transcript']
+                    )
+
                     # Combine results
                     insights = {
                         'summary': summary_result['summary'],
                         'participants': summary_result['participants'],
+                        'action_items_all_views': all_action_views,
                         'metadata': {
                             'summary_metadata': summary_result['metadata'],
-                            'total_tokens_used': summary_result['metadata'].get('tokens_used', 0) or 0,
-                            'generation_type': 'summary_with_action_items'
+                            'action_views_metadata': all_action_views['metadata'],
+                            'total_tokens_used': (
+                                (summary_result['metadata'].get('tokens_used', 0) or 0) +
+                                (all_action_views['metadata'].get('total_tokens_used', 0) or 0)
+                            ),
+                            'generation_type': 'summary_plus_all_action_views'
                         }
                     }
                 else:
-                    # Generate summary with action items included
-                    insights = {
-                        'summary': summary_result['summary'],
-                        'participants': summary_result['participants'],
-                        'metadata': {
-                            'summary_metadata': summary_result['metadata'],
-                            'total_tokens_used': summary_result['metadata'].get('tokens_used', 0) or 0,
-                            'generation_type': 'summary_with_action_items'
+                    # Use existing comprehensive insights method (summary + general action items)
+                    insights = self.llm_service.generate_meeting_insights(
+                        transcription_result['speaker_annotated_transcript'],
+                        {
+                            'duration': transcription_result['duration'] / 60,  # Convert to minutes
+                            'participants_count': result['processing_metadata']['speakers_identified'],
+                            'segments_count': len(transcribed_segments)
                         }
-                    }
+                    )
 
                 result['llm_insights'] = insights
                 logger.info("llm_insights_generated",
