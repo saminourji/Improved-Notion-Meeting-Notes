@@ -590,13 +590,22 @@ class MeetingProcessor:
                        num_speakers: Optional[int] = None, generate_insights: bool = True,
                        generate_all_action_views: bool = False) -> Dict:
         """Process a complete meeting: diarize, match speakers, transcribe."""
+        # Log audio file metadata
+        import os
+        audio_size = os.path.getsize(audio_path) if audio_path.exists() else 0
         logger.info("processing_meeting_start",
                    audio_path=str(audio_path),
+                   audio_size_bytes=audio_size,
+                   audio_size_mb=round(audio_size / (1024 * 1024), 2),
                    voice_samples_provided=len(voice_samples) if voice_samples else 0,
-                   known_speakers_in_db=len(self.speaker_db.list_speakers()))
+                   known_speakers_in_db=len(self.speaker_db.list_speakers()),
+                   generate_insights=generate_insights,
+                   generate_all_action_views=generate_all_action_views)
 
         # Convert audio to proper format
+        logger.info("converting_audio_to_wav", input_path=str(audio_path))
         wav_path = self.audio_processor.convert_to_wav(audio_path)
+        logger.info("audio_conversion_complete", wav_path=str(wav_path))
 
         # Add new voice samples to database if provided
         if voice_samples:
@@ -627,13 +636,38 @@ class MeetingProcessor:
         logger.info("loaded_speakers_for_matching", count=len(known_embeddings))
 
         # Perform diarization with AUTO speaker detection (unless specified)
+        logger.info("starting_diarization", num_speakers=num_speakers, auto_detection=num_speakers is None)
         diarization_result = self.diarizer.diarize(wav_path, num_speakers=num_speakers)
+        logger.info("diarization_complete",
+                   unique_speakers=diarization_result.get('unique_speakers', []),
+                   total_speakers=diarization_result.get('total_speakers', 0),
+                   segments_detected=len(diarization_result.get('segments', [])))
 
         # Extract averaged embeddings per diarized speaker and match (same as tests)
+        logger.info("starting_speaker_matching")
         matching_result = self.matcher.extract_and_match_speakers(wav_path, diarization_result, self.diarizer)
+        
+        # Log speaker matching results
+        matched_speakers = set()
+        unknown_speakers = set()
+        for segment in matching_result.get('segments', []):
+            speaker = segment.get('matched_speaker', 'Unknown')
+            if speaker == 'Unknown':
+                unknown_speakers.add(segment.get('speaker_id', 'unknown'))
+            else:
+                matched_speakers.add(speaker)
+        
+        logger.info("speaker_matching_complete",
+                   matched_speakers=list(matched_speakers),
+                   unknown_speakers=list(unknown_speakers),
+                   total_segments=len(matching_result.get('segments', [])),
+                   matched_count=len(matched_speakers),
+                   unknown_count=len(unknown_speakers))
 
         # Transcribe segments
+        logger.info("starting_transcription", segments_to_transcribe=len(matching_result['segments']))
         transcribed_segments = self.transcriber.transcribe_segments(wav_path, matching_result['segments'])
+        logger.info("transcription_complete", segments_transcribed=len(transcribed_segments))
         
         # Get full meeting transcription with speaker annotations
         transcription_result = self.transcriber.transcribe_full_meeting(wav_path, matching_result['segments'])
@@ -663,7 +697,10 @@ class MeetingProcessor:
 
         # Generate LLM insights if requested
         if generate_insights and transcription_result.get('speaker_annotated_transcript'):
+            transcript_length = len(transcription_result['speaker_annotated_transcript'])
             logger.info("generating_llm_insights",
+                       transcript_length=transcript_length,
+                       transcript_word_count=len(transcription_result['speaker_annotated_transcript'].split()),
                        generate_all_views=generate_all_action_views)
             try:
                 if generate_all_action_views:
@@ -677,36 +714,28 @@ class MeetingProcessor:
                         }
                     )
 
-                    # Generate all action item views (general + speaker-specific)
-                    all_action_views = self.llm_service.extract_all_action_item_views(
-                        transcription_result['speaker_annotated_transcript']
-                    )
-
+                    # Action items are now included in the summary
                     # Combine results
                     insights = {
                         'summary': summary_result['summary'],
                         'participants': summary_result['participants'],
-                        'action_items_all_views': all_action_views,
                         'metadata': {
                             'summary_metadata': summary_result['metadata'],
-                            'action_views_metadata': all_action_views['metadata'],
-                            'total_tokens_used': (
-                                (summary_result['metadata'].get('tokens_used', 0) or 0) +
-                                (all_action_views['metadata'].get('total_tokens_used', 0) or 0)
-                            ),
-                            'generation_type': 'summary_plus_all_action_views'
+                            'total_tokens_used': summary_result['metadata'].get('tokens_used', 0) or 0,
+                            'generation_type': 'summary_with_action_items'
                         }
                     }
                 else:
-                    # Use existing comprehensive insights method (summary + general action items)
-                    insights = self.llm_service.generate_meeting_insights(
-                        transcription_result['speaker_annotated_transcript'],
-                        {
-                            'duration': transcription_result['duration'] / 60,  # Convert to minutes
-                            'participants_count': result['processing_metadata']['speakers_identified'],
-                            'segments_count': len(transcribed_segments)
+                    # Generate summary with action items included
+                    insights = {
+                        'summary': summary_result['summary'],
+                        'participants': summary_result['participants'],
+                        'metadata': {
+                            'summary_metadata': summary_result['metadata'],
+                            'total_tokens_used': summary_result['metadata'].get('tokens_used', 0) or 0,
+                            'generation_type': 'summary_with_action_items'
                         }
-                    )
+                    }
 
                 result['llm_insights'] = insights
                 logger.info("llm_insights_generated",
