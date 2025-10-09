@@ -312,7 +312,7 @@ class SpeakerMatcher:
             if best_match is None:
                 original_speaker = segment['speaker']
                 if original_speaker not in speaker_mapping:
-                    speaker_mapping[original_speaker] = f"Unknown_{len(speaker_mapping) + 1}"
+                    speaker_mapping[original_speaker] = f"Unknown {len(speaker_mapping) + 1}"
                 matched_speaker = speaker_mapping[original_speaker]
                 final_similarity = similarities[0][1] if similarities else 0.0
             else:

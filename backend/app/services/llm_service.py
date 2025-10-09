@@ -78,6 +78,30 @@ Please integrate relevant information from these user notes into the appropriate
         - "This seems to be a closing statement or announcement about [topic]. The recording was quite brief, which limits the depth of analysis possible."
         - "This looks like a short message saying '[exact quote]'. This appears to be a simple [statement type], possibly for a [context]. For more detailed meeting insights, longer recordings are recommended."
         
+        **Example of proper @mention usage**:
+        - Use @Sami, @Aadil, @John, etc. when referring to speakers
+        - Action items: "- [ ] @Sami to complete the project proposal"
+        - Key points: "- @Aadil suggested focusing on user interface improvements"
+        
+        **CRITICAL: Structure Requirements**:
+        - NEVER use nested bullet points or sub-bullets
+        - NEVER use indentation beyond the initial "- " 
+        - Each bullet point must be at the same level
+        - If you need to group information, use separate bullet points instead of nesting
+        
+        **CORRECT Example**:
+        ### Key Points
+        - **Project Focus**: @Aadil emphasized the need to improve the user interface
+        - **Testing Protocols**: @Sami highlighted the importance of having a proper testing framework
+        - **Decision Made**: The team agreed to prioritize UI improvements and testing framework
+        - **Next Steps**: A follow-up meeting is scheduled for next Tuesday
+        
+        **WRONG Example (DO NOT DO THIS)**:
+        ### Key Points
+        - **Task Assignments**: 
+          - @Aadil will work on UI improvements.
+          - @Sami will handle the testing framework.
+        
         **Always provide value** even for brief recordings by:
         - Summarizing what was actually said
         - Acknowledging the brevity constructively
@@ -94,19 +118,25 @@ Please integrate relevant information from these user notes into the appropriate
         **Output Format**:
         - Use standard Markdown formatting
         - Section headers should be H3 (###)
-        - Use bullet points (-) for list items
+        - Use bullet points (-) for list items at the top level only
         - Use checkboxes (- [ ]) for action items
         - Use bold (**text**) to highlight speaker names when referencing specific contributions
         - Use italics (*text*) sparingly for emphasis when needed
+        - **STRICTLY AVOID nested markdown structures**: No sub-bullets, no nested lists, no complex formatting
+        - Keep structure completely flat and simple to prevent rendering issues
+        - Each bullet point should be at the same level (no indentation beyond the initial -)
 
         **Content Guidelines**:
         - Extract key decisions, insights, and takeaways
         - Include specific names, companies, dates, and numbers when mentioned
-        - Explicitly mention speaker names when attributing ideas, decisions, or action items
+        - **ALWAYS use @mentions for speaker names** (e.g., @Sami, @Aadil) when attributing ideas, decisions, or action items
         - Focus on outcomes and next steps rather than conversational flow
         - Capture the main topics discussed and conclusions reached
         - Turn explicit follow-ups into action item checkboxes
         - Do not invent tasks or owners not stated in the meeting
+        - Use simple, flat markdown structure to avoid nested rendering issues
+        - **NEVER mention tasks, assignments, or action items outside of the Action Items section**
+        - Keep Key Points focused on decisions, insights, and discussions - not task assignments
 
         **Style**:
         - Be factual and neutral
