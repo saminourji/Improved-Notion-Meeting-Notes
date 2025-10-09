@@ -169,7 +169,3 @@ export const TranscriptTab: React.FC<TranscriptTabProps> = ({ transcript }) => {
     </div>
   );
 };
-
-export default TranscriptTab;
-
-

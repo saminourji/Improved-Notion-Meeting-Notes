@@ -20,7 +20,6 @@ import {
   FileText,
   Volume2,
   Copy,
-  Sliders,
   ThumbsUp,
   ThumbsDown,
   UserCheck,
@@ -673,9 +672,9 @@ export const MeetingBlock = ({ block, editor }: any) => {
         )}
       </div>
 
-      <div className="mt-1 bg-white border border-[#E5E5E5] rounded-t-2xl rounded-b-3xl p-5 -mx-px">
+      <div className="bg-white border border-[#E5E5E5] rounded-t-2xl rounded-b-3xl px-5 pb-5 -mx-px" style={{ marginTop: '0.125rem', paddingTop: '0px' }}>
         {currentState === 'state1_beforeRecording' && (
-          <div className="mb-5">
+          <div className="mt-4">
             {/* Permission hint for first-time users */}
             {!block.props.status && (
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -688,7 +687,8 @@ export const MeetingBlock = ({ block, editor }: any) => {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-4">
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-0">
             <TabNavigation
               activeTab={activeTab}
@@ -703,8 +703,36 @@ export const MeetingBlock = ({ block, editor }: any) => {
             <DotAudioVisualization isActive={currentState === 'state2_duringRecording'} analyser={analyser} />
           </div>
 
-          <div className="flex items-center gap-6">
-            {currentState === 'state1_beforeRecording' && (
+          <div className={`flex items-center ${block.props.status === 'completed' ? 'gap-0' : 'gap-6'}`}>
+            {/* Notion AI button - only visible after summary is generated */}
+            {block.props.status === 'completed' && (
+              <button className="w-10 h-10 flex items-center justify-center bg-transparent border-none rounded-lg cursor-pointer hover:bg-gray-50 overflow-hidden">
+                <img 
+                  src="/icons/notion_ai_icon.png" 
+                  alt="Notion AI" 
+                  className="w-9 h-9 object-cover"
+                  style={{ 
+                    transform: 'scale(1.08)',
+                    filter: 'brightness(0) saturate(100%) invert(42%) sepia(0%) saturate(0%) hue-rotate(93deg) brightness(96%) contrast(89%)'
+                  }}
+                />
+              </button>
+            )}
+            
+            {/* Settings button - always visible */}
+            <button className="w-10 h-10 flex items-center justify-center bg-transparent border-none rounded-lg cursor-pointer hover:bg-gray-50">
+              <svg width="18" height="13" viewBox="0 0 30 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#6B6B6B]">
+                <path d="M0 4.50939H15.5807" stroke="currentColor" strokeWidth="2"/>
+                <path d="M19.5 8.00939C21.433 8.00939 23 6.44238 23 4.50939C23 2.57639 21.433 1.00939 19.5 1.00939C17.567 1.00939 16 2.57639 16 4.50939C16 6.44238 17.567 8.00939 19.5 8.00939Z" stroke="currentColor" strokeWidth="2"/>
+                <path d="M23.3141 4.50939L30 4.50939" stroke="currentColor" strokeWidth="2"/>
+                <path d="M0 17.5H7.17587" stroke="currentColor" strokeWidth="2"/>
+                <path d="M10.6759 21C12.6089 21 14.1759 19.433 14.1759 17.5C14.1759 15.567 12.6089 14 10.6759 14C8.74287 14 7.17587 15.567 7.17587 17.5C7.17587 19.433 8.74287 21 10.6759 21Z" stroke="currentColor" strokeWidth="2"/>
+                <path d="M14.1759 17.5L30 17.5" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            </button>
+
+            {/* State-specific buttons */}
+            {currentState === 'state1_beforeRecording' && block.props.status !== 'completed' && (
               <>
                 <div className="relative" ref={dropdownRef}>
                   <div className="flex items-center rounded-lg overflow-hidden" style={{ boxShadow: '0 2px 8px rgba(40, 131, 227, 0.2)' }}>
@@ -741,25 +769,23 @@ export const MeetingBlock = ({ block, editor }: any) => {
               </>
             )}
           
-          {currentState === 'state2_duringRecording' && (
-            <>
-              <button
-                onClick={stopRecording}
-                className="h-[50px] px-6 bg-[#FEE2E2] text-[#EF4444] text-base font-semibold rounded-lg border-none cursor-pointer min-w-[100px] transition-all duration-200 hover:bg-[#FECACA]"
-              >
-                Stop
-              </button>
-            </>
-          )}
-          
-          {currentState === 'state3_processing' && (
-            <>
-              <button className="w-10 h-10 flex items-center justify-center bg-transparent border-none rounded-lg cursor-pointer hover:bg-gray-50">
-                <Sliders size={18} strokeWidth={2} className="text-[#6B6B6B]" />
-              </button>
-              <ProcessingIndicator />
-            </>
-          )}
+            {currentState === 'state2_duringRecording' && (
+              <>
+                <button
+                  onClick={stopRecording}
+                  className="h-[50px] px-6 bg-[#FEE2E2] text-[#EF4444] text-base font-semibold rounded-lg border-none cursor-pointer min-w-[100px] transition-all duration-200 hover:bg-[#FECACA]"
+                >
+                  Stop
+                </button>
+              </>
+            )}
+            
+            {currentState === 'state3_processing' && (
+              <>
+                <ProcessingIndicator />
+              </>
+            )}
+          </div>
         </div>
       </div>
 

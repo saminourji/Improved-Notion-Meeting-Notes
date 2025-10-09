@@ -18,5 +18,3 @@ export const NotesTab: React.FC<NotesTabProps> = ({ children }) => {
     </div>
   );
 };
-
-
