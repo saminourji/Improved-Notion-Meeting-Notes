@@ -65,51 +65,111 @@ Additional User Notes to Incorporate:
 
 Please integrate relevant information from these user notes into the appropriate sections of the summary."""
 
-        prompt = f"""You are an AI assistant that creates professional meeting summaries.
+        prompt = f"""You are an expert meeting summarizer. Summarize this meeting transcript as a concise, structured brief for busy stakeholders.
 
-{duration_info}Participants: {', '.join(participants)}
+        **Handling Different Transcript Lengths**:
+        
+        - **For substantial content (10+ words)**: Create a full structured summary with multiple thematic sections
+        - **For brief content (10-99 words)**: Provide a concise summary that acknowledges the brevity while still extracting value
+        - **For minimal content (1-9 words)**: Create a brief acknowledgment summary with helpful suggestions
+        
+        **Examples of good brief summaries**:
+        - "This appears to be a brief test recording where @SpeakerName mentioned [specific content]. While concise, it suggests [implication]. For more comprehensive summaries, consider recording longer conversations."
+        - "This seems to be a closing statement or announcement about [topic]. The recording was quite brief, which limits the depth of analysis possible."
+        - "This looks like a short message saying '[exact quote]'. This appears to be a simple [statement type], possibly for a [context]. For more detailed meeting insights, longer recordings are recommended."
+        
+        **Always provide value** even for brief recordings by:
+        - Summarizing what was actually said
+        - Acknowledging the brevity constructively
+        - Suggesting improvements for future recordings
+        - Extracting any implied context or purpose
 
-Please analyze the following meeting transcript and provide a comprehensive summary:
+        **Structure** (adapt based on content length):
+        - **For substantial content**: Organize into 2-5 thematic sections with clear headers
+        - **For brief content**: Use a simplified structure with Executive Summary, Key Points, and Action Items
+        - **For minimal content**: Use just Executive Summary and Action Items sections
+        - Create section titles that reflect the actual discussion topics (for example, sections might include things like background information, current status updates, strategic discussions, obstacles or concerns, decisions made, or follow-up items)
+        - Always include an Action Items section formatted as checkboxes using "- [ ]"
 
-{speaker_annotated_transcript}{user_notes_section}
+        **Output Format**:
+        - Use standard Markdown formatting
+        - Section headers should be H3 (###)
+        - Use bullet points (-) for list items
+        - Use checkboxes (- [ ]) for action items
+        - Use bold (**text**) to highlight speaker names when referencing specific contributions
+        - Use italics (*text*) sparingly for emphasis when needed
 
-Generate a structured summary with the following sections in markdown format:
+        **Content Guidelines**:
+        - Extract key decisions, insights, and takeaways
+        - Include specific names, companies, dates, and numbers when mentioned
+        - Explicitly mention speaker names when attributing ideas, decisions, or action items
+        - Focus on outcomes and next steps rather than conversational flow
+        - Capture the main topics discussed and conclusions reached
+        - Turn explicit follow-ups into action item checkboxes
+        - Do not invent tasks or owners not stated in the meeting
 
-## Executive Summary
-(2-3 sentences overview)
+        **Style**:
+        - Be factual and neutral
+        - Use concise, skimmable bullet points
+        - Prefer verb-led bullets where appropriate
+        - Remove conversational filler and tangents
+        - Present information logically, not necessarily chronologically
+        - Professional and clear tone
 
-## Key Discussion Points
-- Main topic 1
-- Main topic 2
-- Main topic 3
+        Do not include timestamps or a chronological account of the conversation. Instead, synthesize the discussion into actionable insights and clear takeaways.
 
-## [Topic Name 1]
-(Detailed discussion of major topic - maximum 3 topical sections)
+        ---
 
-## [Topic Name 2]
-(Detailed discussion of major topic - maximum 3 topical sections)
+        {duration_info} Participants: {', '.join(participants)}
 
-## [Topic Name 3]
-(Detailed discussion of major topic - maximum 3 topical sections)
+        Please analyze the following meeting transcript and provide a comprehensive summary:
 
-## Action Items
-- [ ] Task description (Assigned to: Speaker Name, Deadline: if specified)
-- [ ] Task description (Assigned to: Speaker Name, Deadline: if specified)
+        {speaker_annotated_transcript}{user_notes_section}"""
+#         prompt = f"""You are an AI assistant that creates professional meeting summaries.
 
-## Next Steps
-- Next meeting or follow-up item
-- Deadlines and important dates
+# {duration_info}Participants: {', '.join(participants)}
 
-FORMATTING REQUIREMENTS:
-- Use markdown format with proper headers (## for main sections, ### for subsections if needed)
-- Use bullet points (-) for lists
-- Use checkboxes (- [ ]) for action items
-- DO NOT use emojis unless they are directly relevant to the meeting content
-- Be professional, concise, and actionable
-- Focus on concrete outcomes and decisions rather than conversational details
-- Create 1-3 topical sections based on the main themes discussed (beyond standard sections)
-- When referring to a participant or speaker, prefix their name with @ (e.g., @Sami, @Aadil). Use exact names if available from the transcript
-- For action items, include clear assignee and deadline information when available"""
+# Please analyze the following meeting transcript and provide a comprehensive summary:
+
+# {speaker_annotated_transcript}{user_notes_section}
+
+# Generate a structured summary with the following sections in markdown format:
+
+# ## Executive Summary
+# (2-3 sentences overview)
+
+# ## Key Discussion Points
+# - Main topic 1
+# - Main topic 2
+# - Main topic 3
+
+# ## [Topic Name 1]
+# (Detailed discussion of major topic - maximum 3 topical sections)
+
+# ## [Topic Name 2]
+# (Detailed discussion of major topic - maximum 3 topical sections)
+
+# ## [Topic Name 3]
+# (Detailed discussion of major topic - maximum 3 topical sections)
+
+# ## Action Items
+# - [ ] Task description (Assigned to: Speaker Name, Deadline: if specified)
+# - [ ] Task description (Assigned to: Speaker Name, Deadline: if specified)
+
+# ## Next Steps
+# - Next meeting or follow-up item
+# - Deadlines and important dates
+
+# FORMATTING REQUIREMENTS:
+# - Use markdown format with proper headers (## for main sections, ### for subsections if needed)
+# - Use bullet points (-) for lists
+# - Use checkboxes (- [ ]) for action items
+# - DO NOT use emojis unless they are directly relevant to the meeting content
+# - Be professional, concise, and actionable
+# - Focus on concrete outcomes and decisions rather than conversational details
+# - Create 1-3 topical sections based on the main themes discussed (beyond standard sections)
+# - When referring to a participant or speaker, prefix their name with @ (e.g., @Sami, @Aadil). Use exact names if available from the transcript
+# - For action items, include clear assignee and deadline information when available"""
 
         try:
             # Log the prompt being sent to OpenAI

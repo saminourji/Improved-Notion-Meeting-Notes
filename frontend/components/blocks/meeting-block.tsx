@@ -773,8 +773,9 @@ export const MeetingBlock = ({ block, editor }: any) => {
               <>
                 <button
                   onClick={stopRecording}
-                  className="h-[50px] px-6 bg-[#FEE2E2] text-[#EF4444] text-base font-semibold rounded-lg border-none cursor-pointer min-w-[100px] transition-all duration-200 hover:bg-[#FECACA]"
+                  className="h-[33px] px-3 bg-[#FEE2E2] text-[#EF4444] text-sm font-semibold rounded-full border-none cursor-pointer flex items-center gap-2 transition-all duration-200 hover:bg-[#FECACA]"
                 >
+                  <div className="w-3 h-3 bg-[#EF4444] rounded-sm"></div>
                   Stop
                 </button>
               </>
