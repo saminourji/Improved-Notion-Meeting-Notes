@@ -16,8 +16,10 @@ from .pipeline.speaker_database import SpeakerDatabase
 from .core.config import get_settings
 from .core.logging import setup_logging
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from project root
+# When running from backend/, we need to go up one level to find .env
+env_path = Path(__file__).resolve().parent.parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 app = FastAPI(title="Notion Meeting Notes", version="1.0.0")
 
