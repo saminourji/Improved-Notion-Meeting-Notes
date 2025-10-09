@@ -39,10 +39,12 @@ const PROFILE_PHOTOS = [
 ];
 
 const RECORDING_PROMPTS = [
-  "Please say: 'Hey, this is my voice sample'",
-  "Please say: 'I'm setting up my speaker profile'",
-  "Please say: 'The quick brown fox jumps over the lazy dog'"
+  "Hey, my name is Sami",
+  "I love Notion", 
+  "Don't you hire me!"
 ];
+
+const PROMPT_TIMINGS = [5000, 3000, 4000]; // 5-3-4 seconds
 
 // Helper function to get a unique profile photo
 const getUniqueProfilePhoto = (usedPhotos: Set<string>): string => {
@@ -52,6 +54,65 @@ const getUniqueProfilePhoto = (usedPhotos: Set<string>): string => {
     return PROFILE_PHOTOS[Math.floor(Math.random() * PROFILE_PHOTOS.length)];
   }
   return availablePhotos[Math.floor(Math.random() * availablePhotos.length)];
+};
+
+
+// Real-time Audio Visualization Component (matching meeting-block.tsx)
+const AudioVisualization = ({ isActive, analyser }: { isActive: boolean; analyser: AnalyserNode | null }) => {
+  const [bars, setBars] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!isActive || !analyser) {
+      setBars([]);
+      return;
+    }
+
+    const updateVisualization = () => {
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      analyser.getByteFrequencyData(dataArray);
+      
+      // Create 65 bars from the frequency data
+      const barCount = 65;
+      const newBars: number[] = [];
+      
+      for (let i = 0; i < barCount; i++) {
+        // Map frequency data to bars (use different frequency ranges)
+        const dataIndex = Math.floor((i / barCount) * bufferLength);
+        const frequency = dataArray[dataIndex];
+        // Normalize to 0-1 range and add some smoothing
+        const normalizedValue = Math.min(frequency / 255, 1);
+        newBars.push(normalizedValue);
+      }
+      
+      setBars(newBars);
+      
+      if (isActive) {
+        requestAnimationFrame(updateVisualization);
+      }
+    };
+
+    updateVisualization();
+  }, [isActive, analyser]);
+
+  if (!isActive) return null;
+
+  return (
+    <div className="flex items-center gap-1 h-6 mt-2">
+      {bars.map((intensity, index) => (
+        <div
+          key={index}
+          className="w-1 rounded-full transition-all duration-75"
+          style={{
+            backgroundColor: intensity > 0.7 ? '#1A1A1A' : intensity > 0.4 ? '#6B6B6B' : '#E5E5E5',
+            opacity: intensity > 0.1 ? 1 : 0.3,
+            height: `${Math.max(2, 4 + intensity * 20)}px`,
+            transform: `scaleY(${0.5 + intensity * 1.5})`
+          }}
+        />
+      ))}
+    </div>
+  );
 };
 
 const AudioRecorder = ({ 
@@ -65,7 +126,7 @@ const AudioRecorder = ({
 }) => {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
-  const [audioLevel, setAudioLevel] = useState(0);
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -73,6 +134,7 @@ const AudioRecorder = ({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const promptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   const cleanup = () => {
@@ -81,6 +143,9 @@ const AudioRecorder = ({
     }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+    }
+    if (promptTimeoutRef.current) {
+      clearTimeout(promptTimeoutRef.current);
     }
     if (audioContextRef.current) {
       audioContextRef.current.close();
@@ -105,6 +170,39 @@ const AudioRecorder = ({
     }
   }, [duration, maxDuration, recordingState, stopRecording]);
 
+  // Rotate prompts with custom timings (6-5-5 seconds) while recording
+  useEffect(() => {
+    if (recordingState === 'recording') {
+      // Reset to first prompt when recording starts
+      setCurrentPromptIndex(0);
+      
+      // Set up timeout to rotate prompts with custom timings
+      const scheduleNextPrompt = (index: number) => {
+        if (index < PROMPT_TIMINGS.length) {
+          promptTimeoutRef.current = setTimeout(() => {
+            setCurrentPromptIndex((prev) => (prev + 1) % RECORDING_PROMPTS.length);
+            scheduleNextPrompt(index + 1);
+          }, PROMPT_TIMINGS[index]);
+        }
+      };
+      
+      scheduleNextPrompt(0);
+    } else {
+      // Clear timeout when not recording
+      if (promptTimeoutRef.current) {
+        clearTimeout(promptTimeoutRef.current);
+        promptTimeoutRef.current = null;
+      }
+      setCurrentPromptIndex(0);
+    }
+
+    return () => {
+      if (promptTimeoutRef.current) {
+        clearTimeout(promptTimeoutRef.current);
+      }
+    };
+  }, [recordingState]);
+
   const startRecording = async () => {
     setError(null);
     setRecordingState('requesting_permission');
@@ -118,12 +216,13 @@ const AudioRecorder = ({
         }
       });
 
-      // Set up audio context for visualization
+      // Set up audio context for visualization (matching meeting-block.tsx settings)
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
       analyserRef.current.fftSize = 256;
+      analyserRef.current.smoothingTimeConstant = 0.8;
 
       // Set up media recorder
       mediaRecorderRef.current = new MediaRecorder(stream, {
@@ -156,25 +255,10 @@ const AudioRecorder = ({
         setDuration(prev => prev + 1);
       }, 1000);
 
-      // Start audio level monitoring
-      monitorAudioLevel();
-
     } catch (error) {
       console.error('Error starting recording:', error);
       setError('Failed to access microphone. Please check permissions.');
       setRecordingState('error');
-    }
-  };
-
-  const monitorAudioLevel = () => {
-    if (analyserRef.current && recordingState === 'recording') {
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-      analyserRef.current.getByteFrequencyData(dataArray);
-      
-      const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-      setAudioLevel(average);
-      
-      animationFrameRef.current = requestAnimationFrame(monitorAudioLevel);
     }
   };
 
@@ -186,77 +270,86 @@ const AudioRecorder = ({
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-      {/* Recording Prompts */}
-      {recordingState === 'idle' && (
-        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-          <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
-            Recording Tips for {speakerName}:
-          </h4>
-          <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-            {RECORDING_PROMPTS.map((prompt, index) => (
-              <li key={index} className="flex items-start">
-                <span className="mr-2">•</span>
-                {prompt.replace('[name]', speakerName)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      
-      <div className="flex items-center gap-4">
-        {/* Record Button */}
-        <button
-          onClick={recordingState === 'recording' ? stopRecording : startRecording}
-          disabled={recordingState === 'requesting_permission'}
-          className={`p-3 rounded-full transition-colors ${
-            recordingState === 'recording'
-              ? 'bg-red-50 border-2 border-red-500 text-red-600 hover:bg-red-100'
-              : 'bg-gray-50 border-2 border-gray-300 text-gray-600 hover:bg-gray-100 hover:border-gray-400'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          {recordingState === 'recording' ? (
-            <Square className="w-5 h-5" />
-          ) : (
-            <Mic className="w-5 h-5" />
-          )}
-        </button>
-
-        {/* Status and Timer */}
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {recordingState === 'idle' && 'Ready to record'}
-              {recordingState === 'requesting_permission' && 'Requesting permission...'}
-              {recordingState === 'recording' && 'Recording...'}
-              {recordingState === 'completed' && 'Recording completed'}
-              {recordingState === 'error' && 'Error'}
-            </span>
-            {recordingState === 'recording' && (
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {formatTime(duration)} / {formatTime(maxDuration)}
-              </span>
-            )}
+        {recordingState === 'idle' && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <button
+              onClick={startRecording}
+              className="h-[40px] px-6 bg-[#2883E3] text-white text-base font-semibold rounded-full border-none cursor-pointer flex items-center gap-3 transition-all duration-200 hover:bg-[#2272CC]"
+              style={{ fontFamily: 'Inter, sans-serif' }}
+            >
+              <Mic size={18} />
+              Start recording
+            </button>
           </div>
-          
-          {/* Audio Level Visualization */}
-          {recordingState === 'recording' && (
-            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-              <div
-                className="bg-green-500 h-2 rounded-full transition-all duration-100"
-                style={{ width: `${Math.min((audioLevel / 100) * 100, 100)}%` }}
+        )}
+
+        {recordingState === 'requesting_permission' && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <button
+              disabled
+              className="h-[40px] px-6 bg-gray-100 text-gray-500 text-base font-semibold rounded-full border-none cursor-not-allowed flex items-center gap-3"
+              style={{ fontFamily: 'Inter, sans-serif' }}
+            >
+              <Mic size={18} />
+              Requesting...
+            </button>
+          </div>
+        )}
+
+        {(recordingState === 'recording' || recordingState === 'completed') && (
+          <div className="flex items-center justify-between gap-4">
+            {/* Status and Timer */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {recordingState === 'recording' && 'Recording...'}
+                  {recordingState === 'completed' && 'Recording completed'}
+                </span>
+                {recordingState === 'recording' && (
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {formatTime(duration)} / {formatTime(maxDuration)}
+                  </span>
+                )}
+              </div>
+              
+              {/* Audio Frequency Visualization - Matching meeting block */}
+              <AudioVisualization 
+                isActive={recordingState === 'recording'} 
+                analyser={analyserRef.current} 
               />
             </div>
-          )}
-          
-          {/* Error Message */}
-          {error && (
-            <div className="text-sm text-red-600 dark:text-red-400 mt-1">
+
+            {/* Stop Button */}
+            {recordingState === 'recording' && (
+              <button
+                onClick={stopRecording}
+                className="h-[33px] px-3 bg-[#FEE2E2] text-[#EF4444] text-sm font-semibold rounded-full border-none cursor-pointer flex items-center gap-2 transition-all duration-200 hover:bg-[#FECACA]"
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                <div className="w-3 h-3 bg-[#EF4444] rounded-sm"></div>
+                Stop
+              </button>
+            )}
+          </div>
+        )}
+
+        {recordingState === 'error' && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="text-sm text-red-600 dark:text-red-400 mb-4">
               {error}
             </div>
-          )}
-        </div>
+            <button
+              onClick={startRecording}
+              className="h-[40px] px-6 bg-[#2883E3] text-white text-base font-semibold rounded-full border-none cursor-pointer flex items-center gap-3 transition-all duration-200 hover:bg-[#2272CC]"
+              style={{ fontFamily: 'Inter, sans-serif' }}
+            >
+              <Mic size={18} />
+              Try again
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 };
 
