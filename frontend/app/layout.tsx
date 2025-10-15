@@ -7,21 +7,12 @@ import DemoProvider from "@/components/providers/demo-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Improved Notion Meeting Notes",
+  title: "New AI Meeting Notes",
   description: "AI-powered meeting transcription with speaker identification and smart summaries.",
   icons: {
-    icon: [
-      {
-        media: "(prefers-color-schema: light)",
-        url: "/notion.svg",
-        href: "/notion.svg",
-      },
-      {
-        media: "(prefers-color-schema: dark)",
-        url: "/notion.svg",
-        href: "/notion.svg",
-      },
-    ],
+    icon: "/Notion_AI_Face.png",
+    shortcut: "/Notion_AI_Face.png",
+    apple: "/Notion_AI_Face.png",
   },
 };
 

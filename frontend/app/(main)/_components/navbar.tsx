@@ -20,7 +20,7 @@ export const Navbar = ({ isCollapsed, onResetWidth }: NavbarProps) => {
   // Mock document for standalone version
   const document = {
     _id: params.documentId,
-    title: "Demo Document",
+    title: params.documentId === "demo" ? "Demo!" : "Demo Document",
     icon: "📄",
     isArchived: false,
     isPublished: false

@@ -16,16 +16,19 @@ export const demoSpeakers: DemoSpeaker[] = [
   { name: "Sami Nourji",  metadata: { profilePhoto: SamiPortrait } },
 ];
 
-export const demoParticipants = ["Ivan Zhao", "Shir Yehoshua", "Sarah Sachs", "Sami Nourji"];
+export const demoParticipants = [
+  { name: "Ivan Zhao", matched: true },
+  { name: "Shir Yehoshua", matched: true },
+  { name: "Sarah Sachs", matched: true },
+  { name: "Sami Nourji", matched: true }
+];
 
 export const demoTranscript = [
-  { start: 0.0, end: 3.0, speaker: "Speaker 1", matched_speaker: "Ivan Zhao", text: "Okay team, let's discuss adding speaker detection in AI meeting notes. Goal: accurate per-person attribution with @mentions and action items." },
-  { start: 3.1, end: 8.0, speaker: "Speaker 2", matched_speaker: "Shir Yehoshua", text: "Enrollment should be lightweight: a 30–45s guided script to capture a clean voiceprint. We'll store an embedding only, not raw audio, to keep it privacy-friendly." },
-  { start: 8.1, end: 13.5, speaker: "Speaker 3", matched_speaker: "Sarah Sachs", text: "During processing, we diarize first, then compare cluster centroids against enrolled profiles. If confidence < threshold, we label as Person N and avoid misattribution." },
-  { start: 13.6, end: 18.5, speaker: "Speaker 4", matched_speaker: "Sami Nourji", text: "In the UI, transcript lines show speaker badges with avatars from profiles. Action items render under each person using @<name> so they're scannable and editable." },
-  { start: 18.6, end: 23.2, speaker: "Speaker 2", matched_speaker: "Shir Yehoshua", text: "We should expose a 'Resolve speaker' control to manually fix a mislabeled segment. That correction should improve future matches for that user." },
-  { start: 23.3, end: 28.0, speaker: "Speaker 3", matched_speaker: "Sarah Sachs", text: "Reliability: we'll tune the similarity threshold to balance recall vs precision and log borderline cases for offline analysis." },
-  { start: 28.1, end: 34.0, speaker: "Speaker 1", matched_speaker: "Ivan Zhao", text: "Rollout: start with internal and power users. If feedback is good, we'll default-enable for new meeting notes where at least two profiles are enrolled." },
+  { start: 0.0, end: 3.0, speaker: "Speaker 1", matched_speaker: "Ivan Zhao", text: "Okay team, let's discuss how we're going to be implementing speaker detection in Improved AI Meeting Summary!" },
+  { start: 3.1, end: 6.0, speaker: "Speaker 2", matched_speaker: "Shir Yehoshua", text: "Yes, excited to see what Sami did" },
+  { start: 6.1, end: 9.5, speaker: "Speaker 3", matched_speaker: "Sarah Sachs", text: "We're from the same school, can you believe it?" },
+  { start: 9.6, end: 12.5, speaker: "Speaker 4", matched_speaker: "Sami Nourji", text: "You got the 1T OAI award, can you believe it?" },
+  { start: 12.6, end: 15.0, speaker: "Speaker 1", matched_speaker: "Ivan Zhao", text: "What are you doing here!" },
 ];
 
 export const demoSummaryMarkdown = `
@@ -55,17 +58,15 @@ export const demoSummaryMarkdown = `
 
 ### Action Items
 
-- [ ] @Sami Nourji: Record product demo and polish "Thinking…" states
-- [ ] @Ivan Zhao: Finalize matching thresholds and add evaluation dashboards
-- [ ] @Shir Yehoshua: Ship the "Resolve speaker" interaction and persistence
-- [ ] @Sarah Sachs: Validate transcript formatting and per-person action items
+- [ ] @Ivan Zhao: Tell @Shir Yehoshua to hire @Sami Nourji @Today
+- [ ] @Shir Yehoshua: Tell @Sami Nourji to hire @Ivan Zhao @Today
+- [ ] @Sarah Sachs: What?
 `;
 
 export const demoActionItemsMarkdown = `
-- [ ] @Sami Nourji: Finish and polish the demo
-- [ ] @Ivan Zhao: Review and tune diarization/matching thresholds
-- [ ] @Shir Yehoshua: Finalize enrollment and "Resolve speaker" UX copy
-- [ ] @Sarah Sachs: QA transcript rendering and mentions formatting
+- [ ] @Ivan Zhao: Tell @Shir Yehoshua to hire @Sami Nourji @Today
+- [ ] @Shir Yehoshua: Tell @Sami Nourji to hire @Ivan Zhao @Today
+- [ ] @Sarah Sachs: What?
 `;
 
 

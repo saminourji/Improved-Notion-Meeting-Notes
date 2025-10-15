@@ -65,17 +65,48 @@ const AudioVisualization = ({ isActive, analyser }: { isActive: boolean; analyse
       const dataArray = new Uint8Array(bufferLength);
       analyser.getByteFrequencyData(dataArray);
       
-      // Create 65 bars from the frequency data
+      // Create 65 bars from the frequency data using the After Effects technique
       const barCount = 65;
       const newBars: number[] = [];
       
-      for (let i = 0; i < barCount; i++) {
-        // Map frequency data to bars (use different frequency ranges)
-        const dataIndex = Math.floor((i / barCount) * bufferLength);
-        const frequency = dataArray[dataIndex];
-        // Normalize to 0-1 range and add some smoothing
-        const normalizedValue = Math.min(frequency / 255, 1);
-        newBars.push(normalizedValue);
+      // Define frequency layers (like After Effects layers)
+      const layers = [
+        { start: 0, end: 0.2, bars: 15, heightMultiplier: 0.4 }, // Low frequencies - reduced height
+        { start: 0.2, end: 0.5, bars: 20, heightMultiplier: 1.0 }, // Mid-low frequencies - normal height
+        { start: 0.5, end: 0.8, bars: 20, heightMultiplier: 1.0 }, // Mid frequencies - normal height
+        { start: 0.8, end: 1.0, bars: 10, heightMultiplier: 1.0 }  // High frequencies - normal height
+      ];
+      
+      let barIndex = 0;
+      
+      for (const layer of layers) {
+        const barsInLayer = layer.bars;
+        const freqRange = layer.end - layer.start;
+        
+        for (let i = 0; i < barsInLayer && barIndex < barCount; i++) {
+          // Map bar position within layer to frequency range
+          const layerProgress = i / (barsInLayer - 1);
+          const freqPosition = layer.start + (layerProgress * freqRange);
+          const dataIndex = Math.floor(freqPosition * bufferLength);
+          
+          // Ensure we don't go out of bounds
+          const safeIndex = Math.min(dataIndex, bufferLength - 1);
+          
+          // Get the frequency value
+          const frequency = dataArray[safeIndex];
+          
+          // Add some smoothing by averaging with nearby bins
+          let smoothedValue = frequency;
+          if (safeIndex > 0 && safeIndex < bufferLength - 1) {
+            smoothedValue = (dataArray[safeIndex - 1] + frequency + dataArray[safeIndex + 1]) / 3;
+          }
+          
+          // Normalize to 0-1 range and apply layer height multiplier
+          const normalizedValue = Math.min(smoothedValue / 255, 1) * layer.heightMultiplier;
+          newBars.push(normalizedValue);
+          
+          barIndex++;
+        }
       }
       
       setBars(newBars);
@@ -143,6 +174,18 @@ const SpeakerDisplaySection = ({
   const [speakerConfigs, setSpeakerConfigs] = React.useState<Record<string, { profilePhoto?: string }>>({});
   React.useEffect(() => {
     let mounted = true;
+    
+    // Check for demo speakers first
+    if (getDemoMode() && (window as any).__DEMO_SPEAKERS__) {
+      const demoSpeakers = (window as any).__DEMO_SPEAKERS__;
+      const map: Record<string, { profilePhoto?: string }> = {};
+      demoSpeakers.forEach((s: any) => { 
+        map[s.name] = { profilePhoto: s.metadata?.profilePhoto }; 
+      });
+      setSpeakerConfigs(map);
+      return;
+    }
+    
     apiService.getSpeakers().then(list => {
       if (!mounted) return;
       const map: Record<string, { profilePhoto?: string }> = {};
@@ -195,7 +238,7 @@ const SpeakerDisplaySection = ({
               className={`w-8 h-8 rounded-full object-cover border-2 border-gray-300`}
               onError={(e) => { (e.target as HTMLImageElement).src = '/Notion_AI_Face.png'; }}
             />
-            <span className="text-sm text-gray-900 font-medium">{speaker.name}</span>
+            <span className="text-sm text-gray-900 font-medium">{speaker.name.split(' ')[0]}</span>
           </div>
         ))}
       </div>
@@ -222,6 +265,18 @@ const DetectedSpeakersHeaderRow = ({
   const [speakerConfigs, setSpeakerConfigs] = React.useState<Record<string, { profilePhoto?: string }>>({});
   React.useEffect(() => {
     let mounted = true;
+    
+    // Check for demo speakers first
+    if (getDemoMode() && (window as any).__DEMO_SPEAKERS__) {
+      const demoSpeakers = (window as any).__DEMO_SPEAKERS__;
+      const map: Record<string, { profilePhoto?: string }> = {};
+      demoSpeakers.forEach((s: any) => { 
+        map[s.name] = { profilePhoto: s.metadata?.profilePhoto }; 
+      });
+      setSpeakerConfigs(map);
+      return;
+    }
+    
     apiService.getSpeakers().then(list => {
       if (!mounted) return;
       const map: Record<string, { profilePhoto?: string }> = {};
@@ -250,7 +305,7 @@ const DetectedSpeakersHeaderRow = ({
             className="w-6 h-6 rounded-full object-cover border border-gray-300"
             onError={(e) => { (e.target as HTMLImageElement).src = '/Notion_AI_Face.png'; }}
           />
-          <span className="text-sm text-gray-800">{s.name}</span>
+          <span className="text-sm text-gray-800">{s.name.split(' ')[0]}</span>
         </button>
       ))}
     </div>
@@ -314,6 +369,15 @@ export const MeetingBlock = ({ block, editor }: any) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Cleanup audio context and analyser on unmount
+  useEffect(() => {
+    return () => {
+      if (audioContext) {
+        audioContext.close();
+      }
+    };
+  }, [audioContext]);
 
   const updateBlock = (updates: Partial<MeetingBlockProps>) => {
     const processedUpdates = { ...updates } as any;
@@ -443,9 +507,40 @@ export const MeetingBlock = ({ block, editor }: any) => {
     try {
       if (getDemoMode()) {
         initDemoGlobals(demoSpeakers);
-        updateBlock({ status: 'processing', errorMessage: undefined });
-        window.setTimeout(() => updateBlock({ status: 'processing', errorMessage: undefined }), 500);
-        window.setTimeout(() => updateBlock({ status: 'processing', errorMessage: undefined }), 1200);
+        
+        // Set up microphone access for live audio visualization during demo
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          
+          // Set up Web Audio API for real-time visualization
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const analyserNode = audioCtx.createAnalyser();
+          analyserNode.fftSize = 256;
+          analyserNode.smoothingTimeConstant = 0.8;
+          
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyserNode);
+          
+          setAudioContext(audioCtx);
+          setAnalyser(analyserNode);
+          
+          // Stop the stream after 15 seconds (when demo recording ends)
+          window.setTimeout(() => {
+            stream.getTracks().forEach(track => track.stop());
+            if (audioCtx) {
+              audioCtx.close();
+            }
+          }, 15000);
+          
+        } catch (error) {
+          console.warn('Could not access microphone for demo audio visualization:', error);
+        }
+        
+        // Start recording state for 15 seconds
+        updateBlock({ status: 'recording', errorMessage: undefined });
+        // After 15 seconds, switch to processing state
+        window.setTimeout(() => updateBlock({ status: 'processing', errorMessage: undefined }), 15000);
+        // After another 15 seconds (30 seconds total), show completed results
         window.setTimeout(() => updateBlock({
           status: 'completed',
           participants: demoParticipants as any,
@@ -453,7 +548,7 @@ export const MeetingBlock = ({ block, editor }: any) => {
           summary: demoSummaryMarkdown,
           actionItems: demoActionItemsMarkdown as any,
           errorMessage: undefined,
-        }), 2000);
+        }), 30000);
         return;
       }
     } catch {}
@@ -700,7 +795,16 @@ export const MeetingBlock = ({ block, editor }: any) => {
               meetingData={block.props}
             />
 
-            <DotAudioVisualization isActive={currentState === 'state2_duringRecording'} analyser={analyser} />
+            {currentState === 'state2_duringRecording' && analyser && (
+              <div className="flex items-center gap-2">
+                <Mic size={16} className="text-[#9B9B9B]" />
+                <DotAudioVisualization isActive={true} analyser={analyser} />
+                <span className="text-xs text-[#9B9B9B] ml-2">Live</span>
+              </div>
+            )}
+            {currentState === 'state2_duringRecording' && !analyser && (
+              <DotAudioVisualization isActive={false} analyser={null} />
+            )}
           </div>
 
           <div className={`flex items-center ${block.props.status === 'completed' ? 'gap-0' : 'gap-6'}`}>

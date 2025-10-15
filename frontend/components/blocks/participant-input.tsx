@@ -23,6 +23,20 @@ export const ParticipantInput = ({ participants, onParticipantsChange }: Partici
   // Load registered speakers from backend
   useEffect(() => {
     setIsLoadingSpeakers(true);
+    
+    // Check for demo speakers first
+    if (typeof window !== 'undefined' && (window as any).__DEMO_SPEAKERS__) {
+      const demoSpeakers = (window as any).__DEMO_SPEAKERS__;
+      const mapped = demoSpeakers.map((s: any) => ({ 
+        name: s.name, 
+        avatar: s.metadata?.profilePhoto || '/Notion_AI_Face.png'
+      }));
+      setAllSuggestions(mapped);
+      setFilteredSuggestions(mapped.filter((p: any) => !participants.includes(p.name)));
+      setIsLoadingSpeakers(false);
+      return;
+    }
+    
     apiService.getSpeakers().then((speakers) => {
       const mapped = speakers.map(s => ({ 
         name: s.name, 

@@ -22,7 +22,7 @@ const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
   // Mock document data for demo
   const document = {
     id: params.documentId,
-    title: "Untitled",
+    title: params.documentId === "demo" ? "Demo!" : "Untitled",
     content: "",
     icon: null,
     coverImage: null,

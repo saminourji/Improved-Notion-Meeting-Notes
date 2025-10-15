@@ -30,6 +30,13 @@ async function getSpeakersWithCache(): Promise<SpeakerConfig[]> {
     return speakersCache;
   }
   
+  // Check for demo speakers first
+  if (typeof window !== 'undefined' && (window as any).__DEMO_SPEAKERS__) {
+    speakersCache = (window as any).__DEMO_SPEAKERS__;
+    speakersCacheTime = now;
+    return speakersCache || [];
+  }
+  
   try {
     speakersCache = await apiService.getSpeakers();
     speakersCacheTime = now;

@@ -72,17 +72,48 @@ const AudioVisualization = ({ isActive, analyser }: { isActive: boolean; analyse
       const dataArray = new Uint8Array(bufferLength);
       analyser.getByteFrequencyData(dataArray);
       
-      // Create 65 bars from the frequency data
+      // Create 65 bars from the frequency data using the After Effects technique
       const barCount = 65;
       const newBars: number[] = [];
       
-      for (let i = 0; i < barCount; i++) {
-        // Map frequency data to bars (use different frequency ranges)
-        const dataIndex = Math.floor((i / barCount) * bufferLength);
-        const frequency = dataArray[dataIndex];
-        // Normalize to 0-1 range and add some smoothing
-        const normalizedValue = Math.min(frequency / 255, 1);
-        newBars.push(normalizedValue);
+      // Define frequency layers (like After Effects layers)
+      const layers = [
+        { start: 0, end: 0.2, bars: 15, heightMultiplier: 0.4 }, // Low frequencies - reduced height
+        { start: 0.2, end: 0.5, bars: 20, heightMultiplier: 1.0 }, // Mid-low frequencies - normal height
+        { start: 0.5, end: 0.8, bars: 20, heightMultiplier: 1.0 }, // Mid frequencies - normal height
+        { start: 0.8, end: 1.0, bars: 10, heightMultiplier: 1.0 }  // High frequencies - normal height
+      ];
+      
+      let barIndex = 0;
+      
+      for (const layer of layers) {
+        const barsInLayer = layer.bars;
+        const freqRange = layer.end - layer.start;
+        
+        for (let i = 0; i < barsInLayer && barIndex < barCount; i++) {
+          // Map bar position within layer to frequency range
+          const layerProgress = i / (barsInLayer - 1);
+          const freqPosition = layer.start + (layerProgress * freqRange);
+          const dataIndex = Math.floor(freqPosition * bufferLength);
+          
+          // Ensure we don't go out of bounds
+          const safeIndex = Math.min(dataIndex, bufferLength - 1);
+          
+          // Get the frequency value
+          const frequency = dataArray[safeIndex];
+          
+          // Add some smoothing by averaging with nearby bins
+          let smoothedValue = frequency;
+          if (safeIndex > 0 && safeIndex < bufferLength - 1) {
+            smoothedValue = (dataArray[safeIndex - 1] + frequency + dataArray[safeIndex + 1]) / 3;
+          }
+          
+          // Normalize to 0-1 range and apply layer height multiplier
+          const normalizedValue = Math.min(smoothedValue / 255, 1) * layer.heightMultiplier;
+          newBars.push(normalizedValue);
+          
+          barIndex++;
+        }
       }
       
       setBars(newBars);
@@ -118,11 +149,19 @@ const AudioVisualization = ({ isActive, analyser }: { isActive: boolean; analyse
 const AudioRecorder = ({ 
   onRecordingComplete, 
   maxDuration = 60,
-  speakerName
+  speakerName,
+  isRecording,
+  onStartRecording,
+  onStopRecording,
+  onAnalyserReady
 }: { 
   onRecordingComplete: (audioBlob: Blob) => void;
   maxDuration?: number;
   speakerName: string;
+  isRecording: boolean;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  onAnalyserReady?: (analyser: AnalyserNode | null) => void;
 }) => {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
@@ -156,8 +195,9 @@ const AudioRecorder = ({
     if (mediaRecorderRef.current && recordingState === 'recording') {
       mediaRecorderRef.current.stop();
       cleanup();
+      onStopRecording();
     }
-  }, [recordingState]);
+  }, [recordingState, onStopRecording]);
 
   useEffect(() => {
     return () => cleanup();
@@ -203,9 +243,10 @@ const AudioRecorder = ({
     };
   }, [recordingState]);
 
-  const startRecording = async () => {
+  const startRecording = useCallback(async () => {
     setError(null);
     setRecordingState('requesting_permission');
+    onStartRecording();
     
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -223,6 +264,11 @@ const AudioRecorder = ({
       source.connect(analyserRef.current);
       analyserRef.current.fftSize = 256;
       analyserRef.current.smoothingTimeConstant = 0.8;
+      
+      // Notify parent component that analyser is ready
+      if (onAnalyserReady) {
+        onAnalyserReady(analyserRef.current);
+      }
 
       // Set up media recorder
       mediaRecorderRef.current = new MediaRecorder(stream, {
@@ -260,7 +306,7 @@ const AudioRecorder = ({
       setError('Failed to access microphone. Please check permissions.');
       setRecordingState('error');
     }
-  };
+  }, [onStartRecording, onAnalyserReady]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -268,89 +314,18 @@ const AudioRecorder = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-        {recordingState === 'idle' && (
-          <div className="flex flex-col items-center justify-center py-8">
-            <button
-              onClick={startRecording}
-              className="h-[40px] px-6 bg-[#2883E3] text-white text-base font-semibold rounded-full border-none cursor-pointer flex items-center gap-3 transition-all duration-200 hover:bg-[#2272CC]"
-              style={{ fontFamily: 'Inter, sans-serif' }}
-            >
-              <Mic size={18} />
-              Start recording
-            </button>
-          </div>
-        )}
+  // Sync external recording state with internal state
+  useEffect(() => {
+    if (isRecording && recordingState === 'idle') {
+      startRecording();
+    } else if (!isRecording && recordingState === 'recording') {
+      stopRecording();
+    }
+  }, [isRecording, recordingState, startRecording, stopRecording]);
 
-        {recordingState === 'requesting_permission' && (
-          <div className="flex flex-col items-center justify-center py-8">
-            <button
-              disabled
-              className="h-[40px] px-6 bg-gray-100 text-gray-500 text-base font-semibold rounded-full border-none cursor-not-allowed flex items-center gap-3"
-              style={{ fontFamily: 'Inter, sans-serif' }}
-            >
-              <Mic size={18} />
-              Requesting...
-            </button>
-          </div>
-        )}
-
-        {(recordingState === 'recording' || recordingState === 'completed') && (
-          <div className="flex items-center justify-between gap-4">
-            {/* Status and Timer */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {recordingState === 'recording' && 'Recording...'}
-                  {recordingState === 'completed' && 'Recording completed'}
-                </span>
-                {recordingState === 'recording' && (
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatTime(duration)} / {formatTime(maxDuration)}
-                  </span>
-                )}
-              </div>
-              
-              {/* Audio Frequency Visualization - Matching meeting block */}
-              <AudioVisualization 
-                isActive={recordingState === 'recording'} 
-                analyser={analyserRef.current} 
-              />
-            </div>
-
-            {/* Stop Button */}
-            {recordingState === 'recording' && (
-              <button
-                onClick={stopRecording}
-                className="h-[33px] px-3 bg-[#FEE2E2] text-[#EF4444] text-sm font-semibold rounded-full border-none cursor-pointer flex items-center gap-2 transition-all duration-200 hover:bg-[#FECACA]"
-                style={{ fontFamily: 'Inter, sans-serif' }}
-              >
-                <div className="w-3 h-3 bg-[#EF4444] rounded-sm"></div>
-                Stop
-              </button>
-            )}
-          </div>
-        )}
-
-        {recordingState === 'error' && (
-          <div className="flex flex-col items-center justify-center py-8">
-            <div className="text-sm text-red-600 dark:text-red-400 mb-4">
-              {error}
-            </div>
-            <button
-              onClick={startRecording}
-              className="h-[40px] px-6 bg-[#2883E3] text-white text-base font-semibold rounded-full border-none cursor-pointer flex items-center gap-3 transition-all duration-200 hover:bg-[#2272CC]"
-              style={{ fontFamily: 'Inter, sans-serif' }}
-            >
-              <Mic size={18} />
-              Try again
-            </button>
-          </div>
-        )}
-      </div>
-    </>
-  );
+  // This component now only handles the recording logic and returns the recording state
+  // The UI is handled by the parent component
+  return null;
 };
 
 const FileUploadArea = ({ onFileUpload }: { onFileUpload: (file: File) => void }) => {
@@ -483,6 +458,10 @@ export default function SpeakerSetupPage() {
   const [recordedSpeakers, setRecordedSpeakers] = useState<Set<string>>(new Set());
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
   const [menuPositions, setMenuPositions] = useState<Record<string, { top: number; left: number }>>({});
+  const [recordingSpeakers, setRecordingSpeakers] = useState<Set<string>>(new Set());
+  const [currentPromptIndex, setCurrentPromptIndex] = useState<Record<string, number>>({});
+  const [successSpeakers, setSuccessSpeakers] = useState<Set<string>>(new Set());
+  const [speakerAnalysers, setSpeakerAnalysers] = useState<Record<string, AnalyserNode | null>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const menuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -642,13 +621,19 @@ export default function SpeakerSetupPage() {
       if (!saved) throw new Error('Upload failed');
       await loadSpeakers();
       
-      // Mark speaker as recorded and collapse the card
+      // Mark speaker as recorded
       setRecordedSpeakers(prev => new Set(Array.from(prev).concat(speakerName)));
-      setExpandedSpeakers(prev => {
-        const next = new Set(prev);
-        next.delete(speakerName);
-        return next;
-      });
+      
+      // Show success state briefly
+      setSuccessSpeakers(prev => new Set(prev).add(speakerName));
+      setTimeout(() => {
+        setSuccessSpeakers(prev => {
+          const next = new Set(prev);
+          next.delete(speakerName);
+          return next;
+        });
+      }, 2000);
+      
       toast.success('Voice sample added successfully');
     } catch (e) {
       console.error(e);
@@ -753,6 +738,43 @@ export default function SpeakerSetupPage() {
       fileInputRefs.current[speakerName] = fileInput;
     }
     fileInputRefs.current[speakerName]?.click();
+  };
+
+  const handleStartRecording = (speakerName: string) => {
+    setRecordingSpeakers(prev => new Set(prev).add(speakerName));
+    setCurrentPromptIndex(prev => ({ ...prev, [speakerName]: 0 }));
+    
+    // Start prompt rotation
+    const scheduleNextPrompt = (index: number) => {
+      if (index < PROMPT_TIMINGS.length) {
+        setTimeout(() => {
+          setCurrentPromptIndex(prev => ({ ...prev, [speakerName]: (prev[speakerName] + 1) % RECORDING_PROMPTS.length }));
+          scheduleNextPrompt(index + 1);
+        }, PROMPT_TIMINGS[index]);
+      }
+    };
+    scheduleNextPrompt(0);
+  };
+
+  const handleStopRecording = (speakerName: string) => {
+    setRecordingSpeakers(prev => {
+      const next = new Set(prev);
+      next.delete(speakerName);
+      return next;
+    });
+    setCurrentPromptIndex(prev => ({ ...prev, [speakerName]: 0 }));
+    setSpeakerAnalysers(prev => ({ ...prev, [speakerName]: null }));
+    
+    // Revert to original collapsed state (same as before clicking edit)
+    setExpandedSpeakers(prev => {
+      const next = new Set(prev);
+      next.delete(speakerName);
+      return next;
+    });
+  };
+
+  const handleAnalyserReady = (speakerName: string, analyser: AnalyserNode | null) => {
+    setSpeakerAnalysers(prev => ({ ...prev, [speakerName]: analyser }));
   };
 
   return (
@@ -881,9 +903,9 @@ export default function SpeakerSetupPage() {
                     </div>
                   </div>
                 ) : (
-                  // Expanded view - full recording interface
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
+                  // Expanded view - same height as collapsed, only expands when recording
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <img
                           src={speaker.metadata?.profilePhoto || '/Notion_AI_Face.png'}
@@ -903,47 +925,95 @@ export default function SpeakerSetupPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="relative">
+                        {!recordingSpeakers.has(speaker.name) ? (
+                          <>
+                            <button
+                              onClick={() => handleStartRecording(speaker.name)}
+                              className="h-[33px] px-3 bg-[#2883E3] text-white text-sm font-semibold rounded-full border-none cursor-pointer flex items-center gap-2 transition-all duration-200 hover:bg-[#2272CC]"
+                              style={{ fontFamily: 'Inter, sans-serif' }}
+                            >
+                              <Mic size={14} />
+                              Record
+                            </button>
+                            <div className="relative">
+                              <button
+                                ref={(el) => { menuButtonRefs.current[speaker.name] = el; }}
+                                onClick={(e) => toggleMenu(speaker.name, e)}
+                                className={`p-2 rounded-lg transition-colors ${
+                                  isMenuOpen 
+                                    ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20' 
+                                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                }`}
+                                title="More options"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              <DropdownMenu
+                                isOpen={isMenuOpen}
+                                onClose={() => closeMenu(speaker.name)}
+                                onUpload={() => handleMenuUpload(speaker.name)}
+                                position={menuPositions[speaker.name] || { top: 0, left: 0 }}
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleDeleteSpeaker(speaker.name)}
+                              className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
                           <button
-                            ref={(el) => { menuButtonRefs.current[speaker.name] = el; }}
-                            onClick={(e) => toggleMenu(speaker.name, e)}
-                            className={`p-2 rounded-lg transition-colors ${
-                              isMenuOpen 
-                                ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20' 
-                                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                            title="More options"
+                            onClick={() => handleStopRecording(speaker.name)}
+                            className="h-[33px] px-3 bg-[#FEE2E2] text-[#EF4444] text-sm font-semibold rounded-full border-none cursor-pointer flex items-center gap-2 transition-all duration-200 hover:bg-[#FECACA]"
+                            style={{ fontFamily: 'Inter, sans-serif' }}
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            <div className="w-3 h-3 bg-[#EF4444] rounded-sm"></div>
+                            Stop
                           </button>
-                          <DropdownMenu
-                            isOpen={isMenuOpen}
-                            onClose={() => closeMenu(speaker.name)}
-                            onUpload={() => handleMenuUpload(speaker.name)}
-                            position={menuPositions[speaker.name] || { top: 0, left: 0 }}
-                          />
-                        </div>
-                        <button
-                          onClick={() => handleDeleteSpeaker(speaker.name)}
-                          className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        )}
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-                          Record Voice Sample
-                        </h4>
-                        <AudioRecorder
-                          onRecordingComplete={(audioBlob) => handleVoiceSampleAdded(speaker.name, audioBlob)}
-                          maxDuration={60}
-                          speakerName={speaker.name}
-                        />
+                    {/* Only show recording interface when actually recording */}
+                    {recordingSpeakers.has(speaker.name) && (
+                      <div className="mt-4 space-y-4">
+                        {/* Audio visualization centered */}
+                        <div className="flex justify-center">
+                          <AudioVisualization 
+                            isActive={true} 
+                            analyser={speakerAnalysers[speaker.name]} 
+                          />
+                        </div>
+
+                        {/* Prompt text - smaller, no animation */}
+                        <div className="text-center">
+                          <p className="text-lg text-gray-700 dark:text-gray-300">
+                            "{RECORDING_PROMPTS[currentPromptIndex[speaker.name] || 0]}"
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Success state - only show when not recording */}
+                    {successSpeakers.has(speaker.name) && !recordingSpeakers.has(speaker.name) && (
+                      <div className="mt-4 text-center">
+                        <p className="text-sm text-green-600 dark:text-green-400 flex items-center justify-center gap-1">
+                          <Check className="w-4 h-4" />
+                          Voice sample recorded
+                        </p>
+                      </div>
+                    )}
+
+                    <AudioRecorder
+                      onRecordingComplete={(audioBlob) => handleVoiceSampleAdded(speaker.name, audioBlob)}
+                      maxDuration={60}
+                      speakerName={speaker.name}
+                      isRecording={recordingSpeakers.has(speaker.name)}
+                      onStartRecording={() => handleStartRecording(speaker.name)}
+                      onStopRecording={() => handleStopRecording(speaker.name)}
+                      onAnalyserReady={(analyser) => handleAnalyserReady(speaker.name, analyser)}
+                    />
                   </div>
                 )}
               </div>
