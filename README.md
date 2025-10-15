@@ -1,6 +1,6 @@
 # Improved Notion AI Meeting Notes - Speaker Detection
 
-[![Speaker Detection Demo](https://img.youtube.com/vi/VIDEO_ID_HERE/maxresdefault.jpg)](https://youtube.com/watch?v=VIDEO_ID_HERE)
+[![Speaker Detection Demo](https://img.youtube.com/vi/zr7BIeVyL-E/maxresdefault.jpg)](https://youtu.be/zr7BIeVyL-E)
 
 A full-stack meeting notes application that automatically identifies speakers, creates annotated transcripts, and generates AI-powered summaries with personalized action items.
 
