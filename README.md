@@ -50,7 +50,7 @@ Frontend runs at: `http://localhost:3000`
 - **🎯 AUTO Speaker Detection** - No need to specify number of speakers
 - **🗄️ Voice Profile Enrollment** - Persistent speaker embeddings with automatic learning
 - **📝 Real-time Transcription** - Whisper-powered speech-to-text with speaker labels
-- **🤖 AI-powered Analysis** - GPT-4 generated summaries and personalized action items
+- **🤖 AI-powered Analysis** - LLM generated summaries and personalized action items
 - **📱 Notion-like Interface** - Familiar document editor with meeting blocks
 
 ## Architecture
@@ -143,7 +143,7 @@ The application is built for production deployment with:
 
 ## Attribution
 
-This project builds upon the base Notion implementation from [@JyotiranjanGhibila/notion-clone](https://github.com/JyotiranjanGhibila/notion-clone), which provides the core document editing interface and user authentication features.
+This project builds upon the base Notion implementation from [@JyotiranjanGhibila/notion-clone](https://github.com/JyotiranjanGhibila/notion-clone), which provides the core document editing interface.
 
 **Original Work**: All meeting notes functionality, speaker detection, voice profile enrollment, audio processing pipeline, and AI-powered analysis features are original implementations developed specifically for this project.
 
